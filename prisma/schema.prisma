@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  telegramId   BigInt   @unique @map("telegram_id")
+  username     String?  @map("username")
+  firstName    String?  @map("first_name")
+  lastName     String?  @map("last_name")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@map("users")
+}
+
+model Subscription {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planMonths       Float    @map("plan_months")
+  vpnPayloadCipher String   @map("vpn_payload_cipher") @db.Text
+  startsAt         DateTime @default(now()) @map("starts_at")
+  expiresAt        DateTime @map("expires_at")
+  // Уведомление "осталось не более 24 ч"
+  expiryReminderSentAt DateTime? @map("expiry_reminder_sent_at")
+  // Уведомление об окончании подписки
+  subscriptionEndedNotifiedAt DateTime? @map("subscription_ended_notified_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([expiryReminderSentAt])
+  @@index([subscriptionEndedNotifiedAt])
+  @@map("subscriptions")
+}
+
+model AccessAuditLog {
+  id              String   @id @default(uuid())
+  actorTelegramId BigInt?  @map("actor_telegram_id")
+  userId          String?  @map("user_id")
+  action          String
+  metadata        Json?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("access_audit_logs")
+}

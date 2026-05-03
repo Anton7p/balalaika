@@ -1,0 +1,9 @@
+# Подключите при разработке Nest на хосте: доступ к БД/Redis с localhost.
+# docker compose -f docker-compose.yml -f docker-compose.local.yml up -d postgres redis
+services:
+  postgres:
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+  redis:
+    ports:
+      - "${REDIS_PORT:-6379}:6379"

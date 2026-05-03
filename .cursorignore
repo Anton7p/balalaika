@@ -1,0 +1,30 @@
+# Зависимости (самые тяжелые папки)
+node_modules/
+vendor/
+.venv/
+
+# Результаты сборки
+dist/
+build/
+out/
+
+# Логи и временные файлы
+*.log
+tmp/
+.temp/
+
+# Крупные медиа-файлы и датасеты
+*.csv
+*.json
+*.sql
+assets/
+public/storage/
+
+# Скрытые папки инструментов
+.git/
+.idea/
+.vscode/
+
+# Или все XML, если они огромные
+*.xml
+*.docx
