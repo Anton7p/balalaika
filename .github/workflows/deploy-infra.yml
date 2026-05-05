@@ -78,6 +78,13 @@ jobs:
           import sys
 
           server_ip_raw = os.environ["SERVER_IP"].strip()
+          if server_ip_raw.startswith("{"):
+            try:
+              server_obj = json.loads(server_ip_raw)
+              if isinstance(server_obj, dict):
+                server_ip_raw = str(server_obj.get("address", "")).strip()
+            except Exception:
+              pass
           server_ip = re.sub(r"^https?://", "", server_ip_raw).strip().strip("/").strip("\"'")
           if ":" in server_ip:
             server_ip = server_ip.split(":", 1)[0].strip()
