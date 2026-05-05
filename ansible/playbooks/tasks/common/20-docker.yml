@@ -1,0 +1,127 @@
+---
+- name: Install prerequisite packages for Docker repo
+  ansible.builtin.apt:
+    update_cache: true
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+    state: present
+
+- name: Ensure apt keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Add Docker apt GPG key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+
+- name: Add Docker apt repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch={{ 'amd64' if ansible_architecture in ['x86_64', 'amd64'] else 'arm64' }}
+      signed-by=/etc/apt/keyrings/docker.asc]
+      https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+    state: present
+    filename: docker
+
+- name: Install Docker engine and compose plugin
+  ansible.builtin.apt:
+    update_cache: true
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+
+- name: Ensure Docker service is enabled and running
+  ansible.builtin.service:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Ensure DOCKER-USER chain exists
+  ansible.builtin.command:
+    cmd: iptables -N DOCKER-USER
+  register: docker_user_chain
+  failed_when: docker_user_chain.rc != 0 and ('Chain already exists' not in docker_user_chain.stderr)
+  changed_when: docker_user_chain.rc == 0
+
+- name: Allow established traffic in DOCKER-USER
+  ansible.builtin.command:
+    cmd: iptables -C DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+  register: docker_user_established_check
+  failed_when: docker_user_established_check.rc not in [0, 1]
+  changed_when: false
+
+- name: Add established traffic rule in DOCKER-USER
+  ansible.builtin.command:
+    cmd: iptables -I DOCKER-USER 1 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+  when: docker_user_established_check.rc == 1
+
+- name: Allow public HTTPS in DOCKER-USER
+  ansible.builtin.command:
+    cmd: iptables -C DOCKER-USER -p tcp --dport 443 -j ACCEPT
+  register: docker_user_https_check
+  failed_when: docker_user_https_check.rc not in [0, 1]
+  changed_when: false
+
+- name: Add public HTTPS allow rule in DOCKER-USER
+  ansible.builtin.command:
+    cmd: iptables -I DOCKER-USER 2 -p tcp --dport 443 -j ACCEPT
+  when: docker_user_https_check.rc == 1
+
+- name: Allow public HTTP in DOCKER-USER
+  ansible.builtin.command:
+    cmd: iptables -C DOCKER-USER -p tcp --dport 80 -j ACCEPT
+  register: docker_user_http_check
+  failed_when: docker_user_http_check.rc not in [0, 1]
+  changed_when: false
+
+- name: Add public HTTP allow rule in DOCKER-USER
+  ansible.builtin.command:
+    cmd: iptables -I DOCKER-USER 3 -p tcp --dport 80 -j ACCEPT
+  when: docker_user_http_check.rc == 1
+
+- name: Block external access to panel API port 8000
+  ansible.builtin.command:
+    cmd: iptables -C DOCKER-USER -p tcp --dport 8000 ! -s 127.0.0.1/32 -j DROP
+  register: docker_user_panel_block_check
+  failed_when: docker_user_panel_block_check.rc not in [0, 1]
+  changed_when: false
+
+- name: Allow docker bridge traffic to panel API port 8000
+  ansible.builtin.command:
+    cmd: iptables -C DOCKER-USER -p tcp --dport 8000 -s 172.16.0.0/12 -j ACCEPT
+  register: docker_user_panel_internal_allow_check
+  failed_when: docker_user_panel_internal_allow_check.rc not in [0, 1]
+  changed_when: false
+
+- name: Add docker bridge allow rule for panel API
+  ansible.builtin.command:
+    cmd: iptables -I DOCKER-USER 4 -p tcp --dport 8000 -s 172.16.0.0/12 -j ACCEPT
+  when: docker_user_panel_internal_allow_check.rc == 1
+
+- name: Add panel API block rule in DOCKER-USER
+  ansible.builtin.command:
+    cmd: iptables -I DOCKER-USER 5 -p tcp --dport 8000 ! -s 127.0.0.1/32 -j DROP
+  when: docker_user_panel_block_check.rc == 1
+
+- name: Ensure DOCKER-USER returns at chain end
+  ansible.builtin.command:
+    cmd: iptables -C DOCKER-USER -j RETURN
+  register: docker_user_return_check
+  failed_when: docker_user_return_check.rc not in [0, 1]
+  changed_when: false
+
+- name: Add RETURN rule to DOCKER-USER
+  ansible.builtin.command:
+    cmd: iptables -A DOCKER-USER -j RETURN
+  when: docker_user_return_check.rc == 1

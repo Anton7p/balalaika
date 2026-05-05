@@ -111,15 +111,27 @@ export class EnvVars {
 
   @IsOptional()
   @IsString()
-  WHITE_LABEL_VPN_HOST?: string;
-
-  @IsOptional()
-  @IsString()
-  WHITE_LABEL_KEY_PROFILE_SLUG?: string;
-
-  @IsOptional()
-  @IsString()
   VPN_HEALTHCHECK_URL?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  VPN_PANEL_URL!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  VPN_ADMIN_USERNAME!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  VPN_ADMIN_PASSWORD!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  DOMAIN_NAME!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  MARZBAN_INBOUND_TAG!: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvVars {

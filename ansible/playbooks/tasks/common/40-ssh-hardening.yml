@@ -1,0 +1,38 @@
+---
+- name: Disable SSH password authentication
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PasswordAuthentication\\s+"
+    line: "PasswordAuthentication no"
+  notify: Restart sshd
+
+- name: Disable keyboard-interactive authentication
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?KbdInteractiveAuthentication\\s+"
+    line: "KbdInteractiveAuthentication no"
+  notify: Restart sshd
+
+- name: Disable challenge-response authentication if present
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?ChallengeResponseAuthentication\\s+"
+    line: "ChallengeResponseAuthentication no"
+  notify: Restart sshd
+
+- name: Force key-only root login
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PermitRootLogin\\s+"
+    line: "PermitRootLogin prohibit-password"
+  when: ssh_username == "root"
+  notify: Restart sshd
+
+- name: Allow OpenSSH in firewall
+  community.general.ufw:
+    rule: allow
+    name: OpenSSH
+
+- name: Enable firewall
+  community.general.ufw:
+    state: enabled

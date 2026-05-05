@@ -1,0 +1,131 @@
+name: Bootstrap Infrastructure
+
+on:
+  workflow_dispatch:
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    env:
+      SERVER_IP: ${{ secrets.SERVER_IP }}
+      INFRASTRUCTURE_IP_LIST: ${{ secrets.INFRASTRUCTURE_IP_LIST }}
+      DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+      SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      ANSIBLE_SSH_USERNAME: root
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Ansible and sshpass
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install "ansible>=9.0.0"
+          sudo apt-get update
+          sudo apt-get install -y sshpass
+
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          for var in SERVER_IP INFRASTRUCTURE_IP_LIST DOMAIN_NAME SSH_PUBLIC_KEY SSH_PRIVATE_KEY; do
+            if [ -z "${!var}" ]; then
+              echo "::error::Missing required secret: $var"
+              exit 1
+            fi
+          done
+
+      - name: Build Ansible inventory from secrets
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          server_ip = os.environ["SERVER_IP"].strip()
+          raw = os.environ["INFRASTRUCTURE_IP_LIST"].strip()
+
+          try:
+            hosts = json.loads(raw)
+            if not isinstance(hosts, list):
+              raise ValueError("INFRASTRUCTURE_IP_LIST must be JSON array")
+          except Exception as exc:
+            print(f"Failed to parse INFRASTRUCTURE_IP_LIST: {exc}", file=sys.stderr)
+            sys.exit(1)
+
+          if not hosts:
+            print("INFRASTRUCTURE_IP_LIST is empty", file=sys.stderr)
+            sys.exit(1)
+
+          by_address = {}
+          for item in hosts:
+            if not isinstance(item, dict):
+              continue
+            address = str(item.get("address", "")).strip()
+            password = str(item.get("password", "")).strip()
+            if address and password:
+              by_address[address] = password
+
+          if server_ip not in by_address:
+            print("SERVER_IP must be present in INFRASTRUCTURE_IP_LIST with password", file=sys.stderr)
+            sys.exit(1)
+
+          lines = ["[master]"]
+          lines.append(
+            f"master ansible_host={server_ip} ansible_user=root ansible_password='{by_address[server_ip]}'"
+          )
+          lines.append("")
+          lines.append("[nodes]")
+
+          node_index = 1
+          for address, password in by_address.items():
+            if address == server_ip:
+              continue
+            alias = f"node{node_index}"
+            node_index += 1
+            lines.append(
+              f"{alias} ansible_host={address} ansible_user=root ansible_password='{password}'"
+            )
+
+          lines.append("")
+          lines.append("[all:vars]")
+          lines.append("ansible_connection=ssh")
+          lines.append("ansible_become=true")
+
+          path = pathlib.Path("ansible/inventory.ini")
+          path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+
+      - name: Prepare runtime SSH key files for Ansible
+        shell: bash
+        run: |
+          mkdir -p .tmp-keys
+          printf '%s\n' "$SSH_PRIVATE_KEY" > .tmp-keys/id_rsa
+          printf '%s\n' "$SSH_PUBLIC_KEY" > .tmp-keys/id_rsa.pub
+          chmod 600 .tmp-keys/id_rsa
+          chmod 644 .tmp-keys/id_rsa.pub
+
+      - name: Install Ansible collections
+        run: |
+          ansible-galaxy collection install ansible.posix community.general
+
+      - name: Run bootstrap playbook (password auth -> key auth)
+        working-directory: ansible
+        env:
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+          SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          ansible-playbook playbooks/bootstrap.yml
+
+      - name: Verify key-based SSH access after bootstrap
+        working-directory: ansible
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          ansible all -i inventory.ini -m ping --private-key ../.tmp-keys/id_rsa
+
+      - name: Cleanup temporary key material
+        if: always()
+        run: rm -rf .tmp-keys

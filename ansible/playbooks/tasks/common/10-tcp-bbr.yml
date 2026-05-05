@@ -1,0 +1,19 @@
+---
+- name: Ensure sysctl config directory exists
+  ansible.builtin.file:
+    path: /etc/sysctl.d
+    state: directory
+    mode: "0755"
+
+- name: Enable BBR and fq qdisc
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-bbr.conf
+    mode: "0644"
+    content: |
+      net.core.default_qdisc=fq
+      net.ipv4.tcp_congestion_control=bbr
+
+- name: Apply sysctl settings
+  ansible.builtin.command:
+    cmd: sysctl --system
+  changed_when: false

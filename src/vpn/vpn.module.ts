@@ -1,7 +1,7 @@
 import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { LoadBalancerService } from './load-balancer.service';
-import { StubVpnProvider } from './stub-vpn.provider';
+import { MarzbanVpnProvider } from './marzban-vpn.provider';
 import { VpnProvisioningService } from './vpn-provisioning.service';
 import { VPN_PROVIDER } from './vpn.tokens';
 
@@ -15,9 +15,10 @@ import { VPN_PROVIDER } from './vpn.tokens';
   providers: [
     LoadBalancerService,
     VpnProvisioningService,
+    MarzbanVpnProvider,
     {
       provide: VPN_PROVIDER,
-      useClass: StubVpnProvider,
+      useExisting: MarzbanVpnProvider,
     },
   ],
   exports: [VpnProvisioningService, LoadBalancerService, VPN_PROVIDER],

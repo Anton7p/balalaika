@@ -1,0 +1,160 @@
+name: Deploy Panel and Nodes
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SERVER_IP: ${{ secrets.SERVER_IP }}
+      INFRASTRUCTURE_IP_LIST: ${{ secrets.INFRASTRUCTURE_IP_LIST }}
+      DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      VPN_ADMIN_USERNAME: ${{ secrets.VPN_ADMIN_USERNAME }}
+      VPN_ADMIN_PASSWORD: ${{ secrets.VPN_ADMIN_PASSWORD }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+      GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          for var in SERVER_IP INFRASTRUCTURE_IP_LIST DOMAIN_NAME SSH_PRIVATE_KEY VPN_ADMIN_USERNAME VPN_ADMIN_PASSWORD TELEGRAM_BOT_TOKEN ENCRYPTION_KEY GHCR_USERNAME GHCR_TOKEN; do
+            if [ -z "${!var}" ]; then
+              echo "::error::Missing required secret: $var"
+              exit 1
+            fi
+          done
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push app image
+        id: build_app
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}:deploy-${{ github.sha }}
+
+      - name: Install Ansible
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install "ansible>=9.0.0"
+
+      - name: Build Ansible inventory from infrastructure secret
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          server_ip = os.environ["SERVER_IP"].strip()
+          raw = os.environ["INFRASTRUCTURE_IP_LIST"].strip()
+          try:
+            hosts = json.loads(raw)
+          except Exception as exc:
+            print(f"Failed to parse INFRASTRUCTURE_IP_LIST: {exc}", file=sys.stderr)
+            sys.exit(1)
+
+          if not isinstance(hosts, list) or not hosts:
+            print("INFRASTRUCTURE_IP_LIST must be a non-empty JSON array", file=sys.stderr)
+            sys.exit(1)
+
+          addresses = []
+          for item in hosts:
+            if not isinstance(item, dict):
+              continue
+            address = str(item.get("address", "")).strip()
+            if address:
+              addresses.append(address)
+
+          if server_ip not in addresses:
+            print("SERVER_IP must be present in INFRASTRUCTURE_IP_LIST", file=sys.stderr)
+            sys.exit(1)
+
+          lines = ["[master]", f"master ansible_host={server_ip} ansible_user=root", "", "[nodes]"]
+          node_idx = 1
+          for address in addresses:
+            if address == server_ip:
+              continue
+            lines.append(f"node{node_idx} ansible_host={address} ansible_user=root")
+            node_idx += 1
+          lines.extend(["", "[all:vars]", "ansible_connection=ssh", "ansible_become=true"])
+          pathlib.Path("ansible/inventory.ini").write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+
+      - name: Prepare SSH private key
+        shell: bash
+        run: |
+          mkdir -p .tmp-keys
+          printf '%s\n' "$SSH_PRIVATE_KEY" > .tmp-keys/id_rsa
+          chmod 600 .tmp-keys/id_rsa
+
+      - name: Verify SSH connectivity
+        working-directory: ansible
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          ansible all -i inventory.ini -m ping --private-key ../.tmp-keys/id_rsa
+
+      - name: Preflight syntax check
+        working-directory: ansible
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+          VPN_ADMIN_USERNAME: ${{ secrets.VPN_ADMIN_USERNAME }}
+          VPN_ADMIN_PASSWORD: ${{ secrets.VPN_ADMIN_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          APP_IMAGE: ghcr.io/${{ github.repository }}:deploy-${{ github.sha }}
+        run: |
+          ansible-playbook -i inventory.ini playbooks/deploy.yml --syntax-check
+
+      - name: Run deploy playbook
+        working-directory: ansible
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+          VPN_ADMIN_USERNAME: ${{ secrets.VPN_ADMIN_USERNAME }}
+          VPN_ADMIN_PASSWORD: ${{ secrets.VPN_ADMIN_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          APP_IMAGE: ghcr.io/${{ github.repository }}:deploy-${{ github.sha }}
+        run: |
+          ansible-playbook -i inventory.ini playbooks/deploy.yml --private-key ../.tmp-keys/id_rsa
+
+      - name: Verify marzban containers on all hosts
+        working-directory: ansible
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          ansible master -i inventory.ini -a "docker ps --filter name=marzban --format '{{\"{{.Names}}\"}}'" --private-key ../.tmp-keys/id_rsa
+          ansible nodes -i inventory.ini -a "docker ps --filter name=marzban-node --format '{{\"{{.Names}}\"}}'" --private-key ../.tmp-keys/id_rsa || true
+
+      - name: Cleanup temporary key material
+        if: always()
+        run: rm -rf .tmp-keys

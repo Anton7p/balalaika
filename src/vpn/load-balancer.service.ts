@@ -13,8 +13,7 @@ export class LoadBalancerService {
   constructor(private readonly config: ConfigService) {}
 
   selectTarget(): BalancerTarget {
-    const nodeId =
-      this.config.get<string>('WHITE_LABEL_NODE_ID') ?? 'stub-node-a';
+    const nodeId = this.config.get<string>('WHITE_LABEL_NODE_ID') ?? 'node-a';
     return { nodeId };
   }
 }

@@ -1,0 +1,33 @@
+---
+- name: Install nginx and certbot packages
+  ansible.builtin.apt:
+    update_cache: true
+    name:
+      - nginx
+      - certbot
+      - python3-certbot-nginx
+    state: present
+
+- name: Ensure nginx service is enabled and started
+  ansible.builtin.service:
+    name: nginx
+    enabled: true
+    state: started
+
+- name: Allow Nginx Full in firewall
+  community.general.ufw:
+    rule: allow
+    name: Nginx Full
+
+- name: Request/renew certbot certificate for domain
+  ansible.builtin.command:
+    cmd: >-
+      certbot --nginx
+      -d {{ domain_name }}
+      --non-interactive
+      --agree-tos
+      --register-unsafely-without-email
+      --redirect
+  register: certbot_result
+  changed_when: "'Congratulations' in certbot_result.stdout or 'no action taken' not in certbot_result.stdout"
+  failed_when: certbot_result.rc != 0 and ('Certificate not yet due for renewal' not in certbot_result.stdout)

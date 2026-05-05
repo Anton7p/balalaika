@@ -26,7 +26,7 @@ export class SubscriptionHooksProcessor extends WorkerHost {
         subscriptionId: job.data.subscriptionId,
         userId: job.data.userId,
       },
-      'subscription_hooks_processed_stub',
+      'subscription_hooks_processed',
     );
   }
 }

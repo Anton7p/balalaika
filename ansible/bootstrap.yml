@@ -1,0 +1,5 @@
+---
+# Backward-compatible entrypoint.
+# Main bootstrap playbook is split into small files under playbooks/.
+- import_playbook: playbooks/bootstrap.yml
+
