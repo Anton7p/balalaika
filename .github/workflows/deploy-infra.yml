@@ -45,6 +45,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Compute lowercase image repository
+        id: image_meta
+        shell: bash
+        run: |
+          repo_lc="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          echo "repo_lc=$repo_lc" >> "$GITHUB_OUTPUT"
+          echo "app_image=ghcr.io/$repo_lc:deploy-${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
       - name: Build and push app image
         id: build_app
         uses: docker/build-push-action@v6
@@ -52,7 +60,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository }}:deploy-${{ github.sha }}
+          tags: ${{ steps.image_meta.outputs.app_image }}
 
       - name: Install Ansible
         run: |
@@ -128,7 +136,7 @@ jobs:
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-          APP_IMAGE: ghcr.io/${{ github.repository }}:deploy-${{ github.sha }}
+          APP_IMAGE: ${{ steps.image_meta.outputs.app_image }}
         run: |
           ansible-playbook -i inventory.ini playbooks/deploy.yml --syntax-check
 
@@ -143,7 +151,7 @@ jobs:
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-          APP_IMAGE: ghcr.io/${{ github.repository }}:deploy-${{ github.sha }}
+          APP_IMAGE: ${{ steps.image_meta.outputs.app_image }}
         run: |
           ansible-playbook -i inventory.ini playbooks/deploy.yml --private-key ../.tmp-keys/id_rsa
 
