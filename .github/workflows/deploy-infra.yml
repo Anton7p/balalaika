@@ -66,6 +66,8 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install "ansible>=9.0.0"
+          sudo apt-get update
+          sudo apt-get install -y sshpass
 
       - name: Build Ansible inventory from infrastructure secret
         shell: bash
@@ -78,11 +80,13 @@ jobs:
           import sys
 
           server_ip_raw = os.environ["SERVER_IP"].strip()
+          master_password = ""
           if server_ip_raw.startswith("{"):
             try:
               server_obj = json.loads(server_ip_raw)
               if isinstance(server_obj, dict):
                 server_ip_raw = str(server_obj.get("address", "")).strip()
+                master_password = str(server_obj.get("password", "")).strip()
             except Exception:
               pass
           server_ip = re.sub(r"^https?://", "", server_ip_raw).strip().strip("/").strip("\"'")
@@ -121,7 +125,10 @@ jobs:
             if address:
               nodes.append((address, password))
 
-          lines = ["[master]", f"master_host ansible_host={server_ip} ansible_user=root", "", "[nodes]"]
+          master_entry = f"master_host ansible_host={server_ip} ansible_user=root"
+          if master_password:
+            master_entry += f" ansible_password='{master_password}'"
+          lines = ["[master]", master_entry, "", "[nodes]"]
           node_idx = 1
           for address, password in nodes:
             if address == server_ip:
