@@ -74,9 +74,16 @@ jobs:
           import json
           import os
           import pathlib
+          import re
           import sys
 
-          server_ip = os.environ["SERVER_IP"].strip()
+          server_ip_raw = os.environ["SERVER_IP"].strip()
+          server_ip = re.sub(r"^https?://", "", server_ip_raw).strip().strip("/")
+          if ":" in server_ip:
+            server_ip = server_ip.split(":", 1)[0].strip()
+          if not re.fullmatch(r"[A-Za-z0-9._-]+", server_ip):
+            print("SERVER_IP has invalid characters", file=sys.stderr)
+            sys.exit(1)
           raw = os.environ["INFRASTRUCTURE_IP_LIST"].strip()
           try:
             hosts = json.loads(raw)
@@ -88,21 +95,26 @@ jobs:
             print("INFRASTRUCTURE_IP_LIST must be a non-empty JSON array", file=sys.stderr)
             sys.exit(1)
 
-          addresses = []
+          nodes = []
           for item in hosts:
             if isinstance(item, dict):
               address = str(item.get("address", "")).strip()
+              password = str(item.get("password", "")).strip()
             else:
               address = str(item).strip()
+              password = ""
             if address:
-              addresses.append(address)
+              nodes.append((address, password))
 
-          lines = ["[master]", f"master ansible_host={server_ip} ansible_user=root", "", "[nodes]"]
+          lines = ["[master]", f"master_host ansible_host={server_ip} ansible_user=root", "", "[nodes]"]
           node_idx = 1
-          for address in addresses:
+          for address, password in nodes:
             if address == server_ip:
               continue
-            lines.append(f"node{node_idx} ansible_host={address} ansible_user=root")
+            entry = f"node{node_idx} ansible_host={address} ansible_user=root"
+            if password:
+              entry += f" ansible_password='{password}'"
+            lines.append(entry)
             node_idx += 1
           lines.extend(["", "[all:vars]", "ansible_connection=ssh", "ansible_become=true"])
           pathlib.Path("ansible/inventory.ini").write_text("\n".join(lines) + "\n", encoding="utf-8")
