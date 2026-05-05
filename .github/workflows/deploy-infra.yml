@@ -90,15 +90,12 @@ jobs:
 
           addresses = []
           for item in hosts:
-            if not isinstance(item, dict):
-              continue
-            address = str(item.get("address", "")).strip()
+            if isinstance(item, dict):
+              address = str(item.get("address", "")).strip()
+            else:
+              address = str(item).strip()
             if address:
               addresses.append(address)
-
-          if server_ip not in addresses:
-            print("SERVER_IP must be present in INFRASTRUCTURE_IP_LIST", file=sys.stderr)
-            sys.exit(1)
 
           lines = ["[master]", f"master ansible_host={server_ip} ansible_user=root", "", "[nodes]"]
           node_idx = 1
