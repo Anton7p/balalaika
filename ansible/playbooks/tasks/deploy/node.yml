@@ -30,6 +30,12 @@
     mode: "0644"
   no_log: true
 
+- name: Ensure node API port is open in UFW
+  ansible.builtin.command:
+    cmd: ufw allow 62050/tcp
+  register: ufw_node_port
+  changed_when: "'Rule added' in ufw_node_port.stdout or 'Rules updated' in ufw_node_port.stdout"
+
 - name: Deploy Marzban node compose file
   ansible.builtin.template:
     src: templates/marzban-node-compose.yml.j2
