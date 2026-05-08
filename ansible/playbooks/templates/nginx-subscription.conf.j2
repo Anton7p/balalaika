@@ -38,7 +38,7 @@ server {
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
 
-    location ~* /(dashboard|api|docs|redoc|openapi.json|statics) {
+    location ~* /(dashboard|api) {
         proxy_pass http://127.0.0.1:8000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -50,8 +50,8 @@ server {
         proxy_read_timeout 60s;
     }
 
-    location /statics/ {
-        proxy_pass http://127.0.0.1:8000/statics/;
+    location ^~ /statics/ {
+        proxy_pass http://127.0.0.1:8000/dashboard/statics/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
