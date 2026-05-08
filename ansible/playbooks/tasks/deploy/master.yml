@@ -261,6 +261,31 @@
     ) == 0
   no_log: true
 
+- name: Wait until each node reports connected in Marzban
+  ansible.builtin.uri:
+    url: "{{ marzban_api_url }}/nodes"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ master_auth.json.access_token }}"
+    status_code: 200
+    return_content: true
+    timeout: 20
+  register: nodes_connected_poll
+  retries: 20
+  delay: 6
+  until: >
+    (
+      nodes_connected_poll.json
+      | selectattr('address', 'equalto', (hostvars[item].ansible_host | default(item)))
+      | map(attribute='status')
+      | first
+      | default('')
+    ) == 'connected'
+  loop: "{{ groups['nodes'] | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  when: groups['nodes'] is defined
+
 - name: Check SSL certificate presence
   ansible.builtin.stat:
     path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"

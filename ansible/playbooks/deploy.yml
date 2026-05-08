@@ -54,6 +54,7 @@
 
 - name: Deploy Marzban node on nodes
   hosts: nodes
+  serial: 1
   become: true
   gather_facts: true
   vars_files:
