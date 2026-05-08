@@ -125,15 +125,14 @@ jobs:
         run: |
           ansible-galaxy collection install ansible.posix community.general
 
-      - name: Run bootstrap playbook (password auth -> key auth)
+      - name: Run bootstrap playbook (key first, password fallback)
         working-directory: ansible
         env:
           DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
           SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
           ANSIBLE_HOST_KEY_CHECKING: "False"
-          ANSIBLE_SSH_ARGS: "-o PreferredAuthentications=password -o PubkeyAuthentication=no -o KbdInteractiveAuthentication=yes"
         run: |
-          ansible-playbook playbooks/bootstrap.yml
+          ansible-playbook playbooks/bootstrap.yml --private-key ../.tmp-keys/id_rsa
 
       - name: Verify key-based SSH access after bootstrap
         working-directory: ansible
