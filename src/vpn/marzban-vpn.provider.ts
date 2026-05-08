@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'node:crypto';
 import { firstValueFrom } from 'rxjs';
+import type { VpnAdminProvider, VpnNodeStatus } from './vpn-admin-provider.interface';
 import type { VpnClientCreateParams, VpnProvider } from './vpn-provider.interface';
 
 interface MarzbanTokenResponse {
@@ -14,8 +15,14 @@ interface MarzbanCreateUserResponse {
   readonly username?: string;
 }
 
+interface MarzbanNodeResponse {
+  readonly name: string;
+  readonly address: string;
+  readonly status: string;
+}
+
 @Injectable()
-export class MarzbanVpnProvider implements VpnProvider {
+export class MarzbanVpnProvider implements VpnProvider, VpnAdminProvider {
   private token: string | null = null;
 
   constructor(
@@ -197,5 +204,29 @@ export class MarzbanVpnProvider implements VpnProvider {
     } catch {
       return false;
     }
+  }
+
+  async listNodes(): Promise<readonly VpnNodeStatus[]> {
+    const doFetch = async (token: string) =>
+      firstValueFrom(
+        this.http.get<MarzbanNodeResponse[]>(`${this.panelUrl}/api/nodes`, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 15000,
+        }),
+      );
+
+    let response;
+    try {
+      response = await doFetch(await this.getToken());
+    } catch {
+      const refreshed = await this.login();
+      response = await doFetch(refreshed);
+    }
+
+    return response.data.map((node) => ({
+      name: node.name,
+      address: node.address,
+      status: node.status,
+    }));
   }
 }

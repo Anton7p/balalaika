@@ -7,11 +7,16 @@ import { session } from 'telegraf';
 import { REDIS_CLIENT } from '../redis/redis.constants';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { UsersModule } from '../users/users.module';
+import { VpnModule } from '../vpn/vpn.module';
+import { AdminAccessService } from './admin-access.service';
+import { AdminStatusService } from './admin-status.service';
+import { AdminStatusUiAdapter } from './admin-status-ui.adapter';
 import { createTelegramRateLimitMiddleware } from './middleware/telegram-rate-limit.middleware';
 import { PurchaseScene } from './scenes/purchase.scene';
 import { createTelegramApiAgent } from './telegram-proxy.agent';
 import { RedisTelegrafSessionStore } from './redis-session.store';
 import { SubscriptionReminderService } from './subscription-reminder.service';
+import { TelegramAdminUpdate } from './updates/telegram-admin.update';
 import { TelegramKeysUpdate } from './updates/telegram-keys.update';
 import { TelegramNavigationUpdate } from './updates/telegram-navigation.update';
 import { TelegramStartUpdate } from './updates/telegram-start.update';
@@ -21,6 +26,7 @@ import { TelegramStartUpdate } from './updates/telegram-start.update';
     ConfigModule,
     UsersModule,
     SubscriptionsModule,
+    VpnModule,
     TelegrafModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService, REDIS_CLIENT],
@@ -83,8 +89,12 @@ import { TelegramStartUpdate } from './updates/telegram-start.update';
     TelegramStartUpdate,
     TelegramNavigationUpdate,
     TelegramKeysUpdate,
+    TelegramAdminUpdate,
     PurchaseScene,
     SubscriptionReminderService,
+    AdminAccessService,
+    AdminStatusUiAdapter,
+    AdminStatusService,
   ],
 })
 export class TelegramModule {}

@@ -1,4 +1,5 @@
 import { UI_LABELS } from './ui-labels';
+import { ADMIN_MESSAGES } from './admin-messages';
 
 export const MESSAGES = {
   MAIN_TITLE:
@@ -36,6 +37,13 @@ export const MESSAGES = {
     `🧾 Мои ключи\n\n` +
     `✅ Активная подписка до: ${expiryDate}\n\n` +
     `\`\`\`\n${key}\n\`\`\``,
+
+  ADMIN_FORBIDDEN: ADMIN_MESSAGES.FORBIDDEN,
+  ADMIN_STATUS_TITLE: ADMIN_MESSAGES.STATUS_TITLE,
+  ADMIN_STATUS_APP: ADMIN_MESSAGES.STATUS_APP,
+  ADMIN_STATUS_NODES_EMPTY: ADMIN_MESSAGES.STATUS_NODES_EMPTY,
+  ADMIN_STATUS_NODES_ERROR: ADMIN_MESSAGES.STATUS_NODES_ERROR,
+  ADMIN_STATUS_NODE_LINE: ADMIN_MESSAGES.STATUS_NODE_LINE,
 
   UNKNOWN_COMMAND: 'Неизвестная команда',
   ERROR: 'Ошибка. Попробуйте позже.',
