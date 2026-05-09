@@ -1,0 +1,42 @@
+---
+# Rolling deploy of the Telegram bot stack only (reuse existing panel / nginx / certs).
+- name: Deploy bot application on master
+  hosts: master
+  become: true
+  gather_facts: true
+  vars_files:
+    - vars/three-x-ui.defaults.yml
+  vars:
+    deploy_root: "{{ lookup('env', 'DEPLOY_ROOT') | default('/opt/infrastructure', true) }}"
+    app_dir: "{{ deploy_root }}/app"
+    domain_name: "{{ lookup('env', 'DOMAIN_NAME') }}"
+    vpn_admin_username: "{{ lookup('env', 'VPN_ADMIN_USERNAME') }}"
+    vpn_admin_password: "{{ lookup('env', 'VPN_ADMIN_PASSWORD') }}"
+    three_x_ui_web_base_path: "{{ lookup('env', 'THREE_X_UI_WEB_BASE_PATH') | default(three_x_ui_web_base_path_default, true) }}"
+    three_x_ui_inbound_for_app: "{{ lookup('env', 'THREE_X_UI_INBOUND_ID') | default('', true) }}"
+    app_image: "{{ lookup('env', 'APP_IMAGE') }}"
+    ghcr_username: "{{ lookup('env', 'GHCR_USERNAME') }}"
+    ghcr_token: "{{ lookup('env', 'GHCR_TOKEN') }}"
+    telegram_bot_token: "{{ lookup('env', 'TELEGRAM_BOT_TOKEN') }}"
+    encryption_key: "{{ lookup('env', 'ENCRYPTION_KEY') }}"
+    app_db_password: "{{ lookup('env', 'APP_DB_PASSWORD') | default(vpn_admin_password, true) }}"
+  pre_tasks:
+    - name: Validate required bot deploy variables
+      ansible.builtin.assert:
+        that:
+          - domain_name | length > 0
+          - vpn_admin_username | length > 0
+          - vpn_admin_password | length > 0
+          - app_image | length > 0
+          - ghcr_username | length > 0
+          - ghcr_token | length > 0
+          - telegram_bot_token | length > 0
+          - encryption_key | length > 0
+          - three_x_ui_inbound_for_app | length > 0
+          - three_x_ui_inbound_for_app is match('^[0-9]+$')
+        fail_msg: >-
+          For deploy-app you need DOMAIN_NAME, VPN_ADMIN_*, APP_IMAGE, GHCR_*, TELEGRAM_BOT_TOKEN,
+          ENCRYPTION_KEY, and THREE_X_UI_INBOUND_ID (numeric inbound id already on the panel).
+  tasks:
+    - name: Include bot-only deploy tasks
+      ansible.builtin.include_tasks: tasks/deploy/app-only.yml
