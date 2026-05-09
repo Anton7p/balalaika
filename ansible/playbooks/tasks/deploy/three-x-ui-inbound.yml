@@ -42,9 +42,33 @@
     - three_x_ui_reality_private_key is not defined
     - reality_stat.stat.exists
 
-- name: Reality — generate keypair via xray inside panel container
+- name: Reality — locate Xray binary inside 3x-ui container
   ansible.builtin.shell: |
-    docker exec 3x-ui xray x25519 | python3 <<'PY'
+    docker exec 3x-ui sh -c '
+      for p in \
+        /app/bin/xray-linux-amd64 \
+        /app/bin/xray-linux-arm64 \
+        /app/bin/xray-linux-arm32 \
+        /app/bin/xray-linux-armv6 \
+        /app/bin/xray; do
+        if [ -x "$p" ]; then echo "$p"; exit 0; fi
+      done
+      f=$(find /app -maxdepth 8 -type f \( -name "xray-linux-*" -o -name xray \) -perm -111 2>/dev/null | head -n1)
+      if [ -n "$f" ]; then echo "$f"; exit 0; fi
+      exit 1
+    '
+  args:
+    executable: /bin/bash
+  register: three_x_ui_xray_bin
+  changed_when: false
+  failed_when: >
+    (three_x_ui_xray_bin.rc | default(1) != 0) or
+    ((three_x_ui_xray_bin.stdout | default('') | trim) | length == 0)
+  when: three_x_ui_reality_private_key is not defined
+
+- name: Reality — generate keypair via located Xray binary
+  ansible.builtin.shell: |
+    docker exec 3x-ui "{{ three_x_ui_xray_bin.stdout | trim }}" x25519 | python3 <<'PY'
     import sys, re, json
     text = sys.stdin.read()
 
@@ -55,7 +79,7 @@
     priv = grab(r"PrivateKey:\s*(\S+)")
     pub = grab(r"PublicKey:\s*(\S+)") or grab(r"Password:\s*(\S+)")
     if not priv or not pub:
-        sys.stderr.write("x25519: could not parse PrivateKey/PublicKey\n")
+        sys.stderr.write("x25519: could not parse PrivateKey/PublicKey from:\\n" + repr(text[:500]))
         sys.exit(1)
     print(json.dumps({"privateKey": priv, "publicKey": pub}))
     PY
