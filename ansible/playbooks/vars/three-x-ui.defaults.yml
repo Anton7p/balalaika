@@ -1,3 +1,4 @@
 ---
 three_x_ui_image_default: "ghcr.io/mhsanaei/3x-ui:latest"
+# Префикс веб-панели и логина API; CI не задаёт переменную окружения — используется это значение в deploy.yml.
 three_x_ui_web_base_path_default: "/panel/"
