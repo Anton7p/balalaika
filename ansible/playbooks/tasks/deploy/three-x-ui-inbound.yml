@@ -197,7 +197,6 @@
     XUI_SCRIPT_PASSWORD: "{{ vpn_admin_password }}"
   register: inbound_ensure_script
   changed_when: true
-  no_log: true
 
 - name: Publish resolved inbound id for application template
   ansible.builtin.set_fact:

@@ -6,11 +6,49 @@ import argparse
 import json
 import os
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from http.cookiejar import CookieJar
 
 CSRF_HEADER = "X-CSRF-Token"
+
+
+def fetch_json(
+    op: urllib.request.OpenerDirector,
+    req: urllib.request.Request,
+    label: str,
+    *,
+    timeout: float = 60,
+) -> tuple[int, dict]:
+    """HTTP GET/POST and parse JSON; on failure print status + body to stderr and exit."""
+    url = req.get_full_url()
+    try:
+        with op.open(req, timeout=timeout) as resp:
+            status = resp.getcode()
+            raw = resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as e:
+        try:
+            raw = e.read().decode("utf-8", errors="replace")
+        except Exception:
+            raw = ""
+        print(
+            f"{label}: HTTP {e.code} url={url!r} body[:8000]={raw[:8000]!r}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    except urllib.error.URLError as e:
+        print(f"{label}: URL error {e.reason!r} url={url!r}", file=sys.stderr)
+        sys.exit(1)
+    try:
+        data = json.loads(raw) if raw.strip() else {}
+    except json.JSONDecodeError as exc:
+        print(
+            f"{label}: HTTP {status} JSON decode {exc}; body[:8000]={raw[:8000]!r}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return status, data
 
 
 def norm_base(path: str) -> str:
@@ -30,19 +68,13 @@ def opener_with_cookies() -> urllib.request.OpenerDirector:
     return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
 
 
-def read_json(resp) -> dict:
-    raw = resp.read().decode("utf-8", errors="replace")
-    return json.loads(raw) if raw.strip() else {}
-
-
 def csrf_token(op: urllib.request.OpenerDirector, base_url: str) -> str:
     req = urllib.request.Request(
         f"{base_url}/csrf-token",
         headers={"Accept": "application/json"},
         method="GET",
     )
-    with op.open(req, timeout=60) as resp:
-        data = read_json(resp)
+    _, data = fetch_json(op, req, "csrf-token", timeout=60)
     if not data.get("success"):
         print(f"csrf-token: unexpected response: {data}", file=sys.stderr)
         sys.exit(1)
@@ -74,8 +106,7 @@ def post_login(
             "X-Requested-With": "XMLHttpRequest",
         },
     )
-    with op.open(req, timeout=60) as resp:
-        data = read_json(resp)
+    _, data = fetch_json(op, req, "login", timeout=60)
     if not data.get("success"):
         print(f"login failed: {data}", file=sys.stderr)
         sys.exit(1)
@@ -91,8 +122,7 @@ def get_inbounds(op: urllib.request.OpenerDirector, api_root: str, csrf: str) ->
             "X-Requested-With": "XMLHttpRequest",
         },
     )
-    with op.open(req, timeout=60) as resp:
-        data = read_json(resp)
+    _, data = fetch_json(op, req, "inbounds/list", timeout=60)
     if not data.get("success"):
         print(f"inbounds/list failed: {data}", file=sys.stderr)
         sys.exit(1)
@@ -122,10 +152,12 @@ def add_inbound(
             "X-Requested-With": "XMLHttpRequest",
         },
     )
-    with op.open(req, timeout=120) as resp:
-        data = read_json(resp)
+    _, data = fetch_json(op, req, "inbounds/add", timeout=120)
     if not data.get("success"):
-        print(f"inbounds/add failed: {data}", file=sys.stderr)
+        print(
+            f"inbounds/add failed: {data!r} payload_keys={list(payload.keys())!r}",
+            file=sys.stderr,
+        )
         sys.exit(1)
     obj = data.get("obj")
     if not isinstance(obj, dict) or "id" not in obj:
@@ -169,6 +201,10 @@ def main() -> None:
     og = origin(args.host, args.panel_port)
     base_url = og + base
     api_root = f"{og}{base}/panel/api"
+    print(
+        f"three_x_ui_ensure_inbound: base_url={base_url!r} api_root={api_root!r}",
+        file=sys.stderr,
+    )
 
     with open(args.body_file, encoding="utf-8") as f:
         body_payload = json.load(f)

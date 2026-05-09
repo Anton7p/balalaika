@@ -55,7 +55,6 @@
   delay: 5
   until: xui_setting.rc == 0
   changed_when: xui_setting.rc == 0
-  no_log: true
 
 - name: Auto-create or resolve managed VPN inbound via 3x-ui API
   ansible.builtin.include_tasks: three-x-ui-inbound.yml
@@ -88,7 +87,6 @@
   ansible.builtin.shell: |
     set -e
     echo "{{ ghcr_token }}" | docker login ghcr.io -u "{{ ghcr_username }}" --password-stdin
-  no_log: true
 
 - name: Pull latest bot app image
   ansible.builtin.command:
