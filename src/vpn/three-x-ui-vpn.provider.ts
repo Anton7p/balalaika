@@ -12,11 +12,6 @@ import type {
   VpnProvider,
 } from './vpn-provider.interface';
 
-const CSRF_META_RE = /<meta\s+name="csrf-token"\s+content="([^"]+)"/i;
-
-/** Header name expected by github.com/MHSanaei/3x-ui session/csrf.go */
-const CSRF_HEADER = 'X-CSRF-Token';
-
 interface PanelMsg {
   readonly success?: boolean;
 }
@@ -116,29 +111,8 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     return now + days * 24 * 60 * 60 * 1000;
   }
 
-  private extractCsrf(html: string): string {
-    const m = html.match(CSRF_META_RE);
-    if (m?.[1] !== undefined && m[1].length > 0) {
-      return m[1];
-    }
-    throw new Error('3x-ui login page did not expose csrf-token meta');
-  }
-
-  private async fetchLoginHtml(): Promise<{ csrf: string }> {
-    const url = `${this.panelOrigin}${this.webBasePath}`;
-    const res = await firstValueFrom(
-      this.http.get<string>(url, {
-        responseType: 'text',
-        timeout: 15000,
-        validateStatus: (s) => s >= 200 && s < 400,
-      }),
-    );
-    this.absorbSetCookie(res.headers['set-cookie']);
-    return { csrf: this.extractCsrf(res.data) };
-  }
-
-  private async ensurePanelSession(): Promise<{ csrf: string }> {
-    const { csrf } = await this.fetchLoginHtml();
+  /** 3x-ui accepts admin login via form POST and session cookie; HTML meta csrf is not required (SPA builds vary). */
+  private async ensurePanelSession(): Promise<void> {
     const body = new URLSearchParams({
       username: this.adminUsername,
       password: this.adminPassword,
@@ -149,7 +123,7 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           Cookie: this.cookieHeader,
-          [CSRF_HEADER]: csrf,
+          Accept: 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
         },
         timeout: 20000,
@@ -162,11 +136,9 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
         '3x-ui login failed (check VPN_ADMIN_* credentials and web base path)',
       );
     }
-    return { csrf };
   }
 
   private async postInboundAddClient(
-    csrf: string,
     body: Record<string, unknown>,
   ): Promise<void> {
     const baseNoTrail = this.webBasePath.replace(/\/+$/, '');
@@ -176,7 +148,6 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
         headers: {
           'Content-Type': 'application/json',
           Cookie: this.cookieHeader,
-          [CSRF_HEADER]: csrf,
           'X-Requested-With': 'XMLHttpRequest',
         },
         timeout: 25000,
@@ -214,8 +185,8 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     };
 
     const run = async () => {
-      const { csrf } = await this.ensurePanelSession();
-      await this.postInboundAddClient(csrf, {
+      await this.ensurePanelSession();
+      await this.postInboundAddClient({
         id: inboundId,
         settings: JSON.stringify(settingsObj),
       });
@@ -248,7 +219,14 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
 
   async probeIntegration(): Promise<boolean> {
     try {
-      await this.fetchLoginHtml();
+      const url = `${this.panelOrigin}${this.webBasePath}`;
+      await firstValueFrom(
+        this.http.get(url, {
+          responseType: 'text',
+          timeout: 15000,
+          validateStatus: (s) => s >= 200 && s < 500,
+        }),
+      );
       return true;
     } catch {
       return false;
