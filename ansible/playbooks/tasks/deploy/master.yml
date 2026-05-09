@@ -73,7 +73,7 @@
 - name: Configure 3x-ui Telegram bot token and admin chat id
   when:
     - telegram_admin_chat_id | length > 0
-    - telegram_bot_token | length > 0
+    - telegram_bot_admin | length > 0
   ansible.builtin.command:
     argv:
       - docker
@@ -81,7 +81,7 @@
       - "3x-ui"
       - x-ui
       - setting
-      - "-tgbottoken={{ telegram_bot_token }}"
+      - "-tgbottoken={{ telegram_bot_admin }}"
       - "-tgbotchatid={{ telegram_admin_chat_id }}"
       - "-enabletgbot"
   register: xui_tg_bot
@@ -91,7 +91,7 @@
 - name: Restart 3x-ui to apply Telegram bot settings
   when:
     - telegram_admin_chat_id | length > 0
-    - telegram_bot_token | length > 0
+    - telegram_bot_admin | length > 0
   ansible.builtin.command:
     cmd: docker compose restart 3x-ui
     chdir: "{{ panel_dir }}"
@@ -99,7 +99,7 @@
 - name: Wait for 3x-ui web listener after Telegram bot restart
   when:
     - telegram_admin_chat_id | length > 0
-    - telegram_bot_token | length > 0
+    - telegram_bot_admin | length > 0
   ansible.builtin.wait_for:
     host: 127.0.0.1
     port: "{{ three_x_ui_panel_port | int }}"

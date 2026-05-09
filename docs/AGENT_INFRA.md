@@ -31,7 +31,8 @@
 `THREE_X_UI_INBOUND_ID` — если задан, деплой только проверяет, что такой inbound уже есть на панели; если не задан, Ansible создаёт/находит inbound по remark (`THREE_X_UI_MANAGED_INBOUND_REMARK`).  
 `THREE_X_UI_VPN_PORT` — TCP-порт инбаунда Xray на master (по умолчанию **8443**, не занимать порт **443** у nginx).  
 `THREE_X_UI_REALITY_PRIVATE_KEY` и `THREE_X_UI_REALITY_PUBLIC_KEY` — пара Reality; если оба заданы, ключи не генерируются на сервере. Если оба пустые — генерируются один раз и сохраняются в `panel/data/.balalaika-reality.json`.  
-`THREE_X_UI_MANAGED_INBOUND_REMARK` — remark инбаунда для поиска/создания (по умолчанию `balalaika-bot`).
+`THREE_X_UI_MANAGED_INBOUND_REMARK` — remark инбаунда для поиска/создания (по умолчанию `balalaika-bot`).  
+`TELEGRAM_BOT_ADMIN` и `TELEGRAM_ID_ADMIN` — если оба заданы, Ansible прописывает в 3x-ui Telegram-бота для админ-уведомлений (`x-ui setting -tgbottoken` / `-tgbotchatid`); отдельно от токена **`TELEGRAM_BOT_TOKEN`** для приложения-бота.
 
 Инвентарь в CI **генерируется скриптом** из `SERVER_IP` и `INFRASTRUCTURE_IP_LIST` (см. шаги workflow). Локальный файл `ansible/inventory.ini` не должен попадать в git.
 
