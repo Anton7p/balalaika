@@ -157,25 +157,28 @@
     three_x_ui_vless_stream:
       network: tcp
       security: reality
-      tcpSettings:
-        acceptProxyProtocol: false
-        header:
-          type: none
+      externalProxy: []
       realitySettings:
         show: false
         xver: 0
-        dest: "{{ three_x_ui_reality_dest }}"
+        target: "{{ three_x_ui_reality_dest }}"
         serverNames: "{{ three_x_ui_reality_server_names }}"
         privateKey: "{{ three_x_ui_reality_private_key }}"
         minClientVer: ""
         maxClientVer: ""
         maxTimediff: 0
         shortIds: "{{ three_x_ui_reality_short_ids }}"
+        mldsa65Seed: ""
         settings:
           publicKey: "{{ three_x_ui_reality_public_key }}"
           fingerprint: "{{ three_x_ui_reality_fingerprint }}"
-          serverName: "{{ three_x_ui_reality_server_names | first }}"
+          serverName: ""
           spiderX: /
+          mldsa65Verify: ""
+      tcpSettings:
+        acceptProxyProtocol: false
+        header:
+          type: none
 
 - name: Render managed inbound JSON for 3x-ui API
   ansible.builtin.template:

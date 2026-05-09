@@ -6,6 +6,7 @@ three_x_ui_web_base_path_default: "/panel/"
 # Авто-inbound для бота (VLESS + REALITY). Порт VPN задаётся в deploy.yml (по умолчанию 8443), не пересекать с nginx:443.
 three_x_ui_managed_inbound_remark: "balalaika-bot"
 three_x_ui_vpn_listen: ""
+# В JSON панели 3x-ui уходит в realitySettings.target (не dest).
 three_x_ui_reality_dest: "www.cloudflare.com:443"
 three_x_ui_reality_server_names:
   - "www.cloudflare.com"
@@ -14,10 +15,10 @@ three_x_ui_reality_fingerprint: "chrome"
 three_x_ui_vless_settings:
   clients: []
   decryption: "none"
-  fallbacks: []
+  encryption: "none"
 
 three_x_ui_sniffing:
   enabled: true
-  destOverride: ["http", "tls", "quic"]
+  destOverride: ["http", "tls", "quic", "fakedns"]
   metadataOnly: false
   routeOnly: false
