@@ -20,9 +20,10 @@ function formatFreeTrialButtonLabel(option: {
 
 function formatPaidPlanLabel(option: {
   readonly label: string;
+  readonly devices: number;
   readonly price: number;
 }): string {
-  return `${option.label} ✦ ${option.price}₽`;
+  return `${option.label} ✦ ${option.devices} 📱 ✦ ${option.price}₽`;
 }
 
 export function mainKeyboard(): ReturnType<typeof Markup.inlineKeyboard> {

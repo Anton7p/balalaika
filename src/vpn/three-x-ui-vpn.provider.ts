@@ -211,13 +211,14 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
       params.telegramUserId !== undefined
         ? `${params.label} | tg:${params.telegramUserId.toString()}`
         : params.label;
+    const limitIp = Math.max(1, Math.floor(params.limitIp));
     const settingsObj = {
       clients: [
         {
           id: clientUuid,
           email,
           flow: '',
-          limitIp: 0,
+          limitIp,
           totalGB: 0,
           expiryTime: this.expiryEpochMs(params.planMonths),
           enable: true,

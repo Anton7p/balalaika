@@ -1,6 +1,8 @@
 export interface VpnClientCreateParams {
   readonly label: string;
   readonly planMonths: number;
+  /** Макс. одновременных IP (поле limitIp клиента в 3x-ui / Xray). */
+  readonly limitIp: number;
   /** Numeric Telegram user id для имени в панели; если нет — случайный анонимный префикс. */
   readonly telegramUserId?: bigint;
 }

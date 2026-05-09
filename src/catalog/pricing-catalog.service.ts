@@ -14,6 +14,13 @@ export class PricingCatalogService {
     return row?.label ?? `${planMonths} мес.`;
   }
 
+  /** Лимит устройств по тарифу (поле devices → limitIp в панели). */
+  findPlanDeviceLimit(planMonths: number): number {
+    const row = ACCESS_PRICES.find((p) => p.months === planMonths);
+    const raw = row?.devices ?? 2;
+    return Math.max(1, Math.floor(raw));
+  }
+
   getPlans(): readonly AccessPriceOption[] {
     return ACCESS_PRICES;
   }

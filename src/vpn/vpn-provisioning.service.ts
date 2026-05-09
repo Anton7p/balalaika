@@ -12,12 +12,14 @@ export class VpnProvisioningService {
 
   async provisionConnection(
     planMonths: number,
-    telegramUserId?: bigint,
+    telegramUserId: bigint | undefined,
+    limitIp: number,
   ): Promise<string> {
     const target = this.loadBalancer.selectTarget();
     const { connectionUri } = await this.vpn.createClient({
       label: `${target.nodeId}:${planMonths}`,
       planMonths,
+      limitIp,
       telegramUserId,
     });
     return connectionUri;

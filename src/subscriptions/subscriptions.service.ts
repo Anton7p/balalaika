@@ -68,9 +68,11 @@ export class SubscriptionsService {
       idempotencyKey,
     });
 
+    const limitIp = this.pricingCatalog.findPlanDeviceLimit(planMonths);
     const keyPlain = await this.vpnProvisioning.provisionConnection(
       planMonths,
       actorTelegramId,
+      limitIp,
     );
     const expiresAt = this.computeExpiryEnd(planMonths);
     const vpnPayloadCipher = this.crypto.encryptUtf8(keyPlain);
