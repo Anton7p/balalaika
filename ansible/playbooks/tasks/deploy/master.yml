@@ -16,23 +16,51 @@
     port: "50443"
     proto: tcp
 
-- name: Deploy Marzban panel compose file
+- name: Ensure 3x-ui panel and subscription ports in UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop:
+    - "{{ three_x_ui_panel_port }}"
+    - "{{ three_x_ui_sub_port }}"
+
+- name: Deploy 3x-ui panel compose file
   ansible.builtin.template:
-    src: templates/marzban-master-compose.yml.j2
+    src: templates/three-x-ui-master-compose.yml.j2
     dest: "{{ panel_dir }}/docker-compose.yml"
     mode: "0644"
 
-- name: Pull latest Marzban panel image
+- name: Pull latest 3x-ui panel image
   ansible.builtin.command:
     cmd: docker compose pull
     chdir: "{{ panel_dir }}"
 
-- name: Start/update Marzban panel stack
+- name: Start/update 3x-ui panel stack
   ansible.builtin.command:
     cmd: docker compose up -d
     chdir: "{{ panel_dir }}"
   register: panel_up
   changed_when: "'Started' in panel_up.stdout or 'Recreated' in panel_up.stdout or 'Creating' in panel_up.stdout"
+
+- name: Wait for 3x-ui web listener
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ three_x_ui_panel_port | int }}"
+    timeout: 180
+
+- name: Sync 3x-ui credentials and web base path
+  ansible.builtin.command:
+    cmd: >-
+      docker exec 3x-ui x-ui setting -username "{{ vpn_admin_username }}"
+      -password "{{ vpn_admin_password }}"
+      -webBasePath "{{ three_x_ui_web_base_path }}"
+  register: xui_setting
+  retries: 8
+  delay: 5
+  until: xui_setting.rc == 0
+  changed_when: xui_setting.rc == 0
+  no_log: true
 
 - name: Deploy app stack compose file
   ansible.builtin.template:
@@ -64,194 +92,45 @@
   register: app_up
   changed_when: "'Started' in app_up.stdout or 'Recreated' in app_up.stdout or 'Creating' in app_up.stdout"
 
-- name: Wait for Marzban API to answer
-  ansible.builtin.uri:
-    url: "{{ marzban_api_url }}/admin/token"
-    method: POST
-    body_format: form-urlencoded
-    body:
-      username: "{{ vpn_admin_username }}"
-      password: "{{ vpn_admin_password }}"
-    status_code: [200, 401, 403]
-    timeout: 10
-  register: auth_probe
-  retries: 20
-  delay: 5
-  until: auth_probe.status in [200, 401, 403]
-  no_log: true
-
-- name: Create first Marzban admin when needed
-  ansible.builtin.uri:
-    url: "{{ marzban_api_url }}/admin"
-    method: POST
-    body_format: json
-    body:
-      username: "{{ vpn_admin_username }}"
-      password: "{{ vpn_admin_password }}"
-      is_sudo: true
-    status_code: [200, 201, 403]
-    timeout: 15
-  when: auth_probe.status == 401
-  no_log: true
-
-- name: Authenticate to Marzban API
-  ansible.builtin.uri:
-    url: "{{ marzban_api_url }}/admin/token"
-    method: POST
-    body_format: form-urlencoded
-    body:
-      username: "{{ vpn_admin_username }}"
-      password: "{{ vpn_admin_password }}"
-    status_code: 200
-    timeout: 15
-  register: master_auth
-  retries: 5
-  delay: 3
-  until: master_auth.status == 200
-  no_log: true
-
-- name: Read current Marzban core config
-  ansible.builtin.uri:
-    url: "{{ marzban_api_url }}/core/config"
-    method: GET
-    headers:
-      Authorization: "Bearer {{ master_auth.json.access_token }}"
-    status_code: 200
-    return_content: true
-    timeout: 30
-  register: core_config
-  no_log: true
-
-- name: Check whether required inbound already exists
-  ansible.builtin.set_fact:
-    marzban_inbound_exists: >-
-      {{ core_config.json is defined and
-         core_config.json.inbounds is defined and
-         (core_config.json.inbounds | selectattr('tag', 'equalto', marzban_inbound_tag) | list | length > 0) }}
-
-- name: Generate Reality private/public keypair when inbound missing
-  ansible.builtin.command:
-    cmd: docker run --rm {{ marzban_node_image }} xray x25519
-  register: x25519_output
-  when: not marzban_inbound_exists
-  changed_when: true
-  no_log: true
-
-- name: Parse generated Reality keys
-  ansible.builtin.set_fact:
-    reality_private_key: "{{ x25519_output.stdout | regex_search('Private key: ([^\\s]+)', '\\1') | first }}"
-    reality_public_key: "{{ x25519_output.stdout | regex_search('Public key: ([^\\s]+)', '\\1') | first }}"
-  when: not marzban_inbound_exists
-  no_log: true
-
-- name: Generate short id for Reality inbound
-  ansible.builtin.command:
-    cmd: openssl rand -hex 4
-  register: short_id_output
-  when: not marzban_inbound_exists
-  changed_when: true
-  no_log: true
-
-- name: Save generated Reality short id
-  ansible.builtin.set_fact:
-    reality_short_id: "{{ short_id_output.stdout }}"
-  when: not marzban_inbound_exists
-  no_log: true
-
-- name: Build Reality inbound spec
-  ansible.builtin.set_fact:
-    reality_inbound_spec:
-      tag: "{{ marzban_inbound_tag }}"
-      listen: "0.0.0.0"
-      port: 50443
-      protocol: "vless"
-      settings:
-        clients: []
-        decryption: "none"
-      streamSettings:
-        network: "tcp"
-        tcpSettings: {}
-        security: "reality"
-        realitySettings:
-          show: false
-          dest: "{{ marzban_reality_dest }}"
-          xver: 0
-          serverNames: "{{ marzban_reality_server_names_csv.split(',') | map('trim') | reject('equalto', '') | list }}"
-          privateKey: "{{ reality_private_key }}"
-          spiderX: "/"
-          shortIds:
-            - "{{ reality_short_id }}"
-      sniffing:
-        enabled: true
-        destOverride:
-          - "http"
-          - "tls"
-          - "quic"
-  when: not marzban_inbound_exists
-  no_log: true
-
-- name: Build updated core config with Reality inbound
-  ansible.builtin.set_fact:
-    updated_core_config: "{{ core_config.json | combine({'inbounds': (core_config.json.inbounds | default([])) + [reality_inbound_spec]}, recursive=True) }}"
-  when: not marzban_inbound_exists
-  no_log: true
-
-- name: Apply updated core config in Marzban
-  ansible.builtin.uri:
-    url: "{{ marzban_api_url }}/core/config"
-    method: PUT
-    headers:
-      Authorization: "Bearer {{ master_auth.json.access_token }}"
-      Content-Type: application/json
-    body_format: json
-    body: "{{ updated_core_config }}"
-    status_code: [200, 201, 204]
-    timeout: 30
-  when: not marzban_inbound_exists
-
-- name: Fetch node certificate from Marzban
-  ansible.builtin.uri:
-    url: "{{ marzban_api_url }}/node/settings"
-    method: GET
-    headers:
-      Authorization: "Bearer {{ master_auth.json.access_token }}"
-    status_code: 200
-    return_content: true
-    timeout: 30
-  register: node_settings
-  no_log: true
-
-- name: Validate node certificate exists
-  ansible.builtin.assert:
-    that:
-      - node_settings.json.certificate is defined
-      - node_settings.json.certificate | length > 0
-    fail_msg: "Marzban API did not return node certificate from /node/settings."
-
-- name: Save node certificate as host fact
-  ansible.builtin.set_fact:
-    marzban_node_certificate: "{{ node_settings.json.certificate }}"
-    cacheable: true
-  no_log: true
-
 - name: Check SSL certificate presence
   ansible.builtin.stat:
     path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
   register: ssl_cert_stat
 
-- name: Deploy nginx config for subscriptions
+- name: Remove legacy nginx site files from older deploys
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/nginx/sites-enabled/marzban-subscription.conf
+    - /etc/nginx/sites-available/marzban-subscription.conf
+  notify: Reload nginx
+
+- name: Deploy nginx config for panel and subscriptions
   ansible.builtin.template:
     src: templates/nginx-subscription.conf.j2
-    dest: /etc/nginx/sites-available/marzban-subscription.conf
+    dest: /etc/nginx/sites-available/infra-edge.conf
     mode: "0644"
   vars:
     ssl_cert_exists: "{{ ssl_cert_stat.stat.exists | default(false) }}"
 
 - name: Enable nginx site
   ansible.builtin.file:
-    src: /etc/nginx/sites-available/marzban-subscription.conf
-    dest: /etc/nginx/sites-enabled/marzban-subscription.conf
+    src: /etc/nginx/sites-available/infra-edge.conf
+    dest: /etc/nginx/sites-enabled/infra-edge.conf
     state: link
+  notify: Reload nginx
+
+- name: Remove legacy subscription nginx site symlink
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/subscription.conf
+    state: absent
+  notify: Reload nginx
+
+- name: Remove legacy subscription nginx site file
+  ansible.builtin.file:
+    path: /etc/nginx/sites-available/subscription.conf
+    state: absent
   notify: Reload nginx
 
 - name: Remove default nginx site
@@ -289,7 +168,7 @@
 - name: Redeploy nginx config with SSL enabled
   ansible.builtin.template:
     src: templates/nginx-subscription.conf.j2
-    dest: /etc/nginx/sites-available/marzban-subscription.conf
+    dest: /etc/nginx/sites-available/infra-edge.conf
     mode: "0644"
   vars:
     ssl_cert_exists: "{{ ssl_cert_stat_after.stat.exists | default(false) }}"
@@ -297,11 +176,6 @@
 
 - name: Flush nginx handlers after SSL update
   ansible.builtin.meta: flush_handlers
-
-- name: Ensure marzban inbound tag fact exists
-  ansible.builtin.set_fact:
-    marzban_inbound_tag_effective: "{{ marzban_inbound_tag }}"
-    cacheable: true
 
 - name: Smoke check public health endpoint
   ansible.builtin.uri:
@@ -324,4 +198,3 @@
   retries: 10
   delay: 3
   until: app_health.status in [200, 503]
-

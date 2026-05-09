@@ -136,7 +136,12 @@ export class EnvVars {
 
   @IsString()
   @IsNotEmpty()
-  MARZBAN_INBOUND_TAG!: string;
+  THREE_X_UI_INBOUND_ID!: string;
+
+  /** Префикс веб-панели 3x-ui, например `/panel/` (слэш в конце желателен). */
+  @IsOptional()
+  @IsString()
+  THREE_X_UI_WEB_BASE_PATH?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvVars {

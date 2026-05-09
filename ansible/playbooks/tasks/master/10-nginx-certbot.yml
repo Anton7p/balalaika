@@ -19,7 +19,7 @@
     rule: allow
     name: Nginx Full
 
-- name: Allow Marzban Reality inbound port in firewall
+- name: Allow Xray Reality inbound port in firewall
   community.general.ufw:
     rule: allow
     port: "50443"

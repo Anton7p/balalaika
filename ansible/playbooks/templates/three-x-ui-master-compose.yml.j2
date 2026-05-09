@@ -1,0 +1,15 @@
+services:
+  3x-ui:
+    image: {{ three_x_ui_image }}
+    container_name: 3x-ui
+    restart: always
+    network_mode: host
+    volumes:
+      - {{ panel_dir }}/data:/etc/x-ui
+    environment:
+      XUI_ENABLE_FAIL2BAN: "false"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

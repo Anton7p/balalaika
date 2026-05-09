@@ -1,10 +1,10 @@
 ---
-- name: Deploy Marzban panel on master
+- name: Deploy 3x-ui panel on master
   hosts: master
   become: true
   gather_facts: true
   vars_files:
-    - vars/marzban.defaults.yml
+    - vars/three-x-ui.defaults.yml
   vars:
     deploy_root: "{{ lookup('env', 'DEPLOY_ROOT') | default('/opt/infrastructure', true) }}"
     panel_dir: "{{ deploy_root }}/panel"
@@ -13,18 +13,17 @@
     domain_name: "{{ lookup('env', 'DOMAIN_NAME') }}"
     vpn_admin_username: "{{ lookup('env', 'VPN_ADMIN_USERNAME') }}"
     vpn_admin_password: "{{ lookup('env', 'VPN_ADMIN_PASSWORD') }}"
-    marzban_image: "{{ lookup('env', 'MARZBAN_IMAGE') | default(marzban_image_default, true) }}"
-    marzban_node_image: "{{ lookup('env', 'MARZBAN_NODE_IMAGE') | default(marzban_node_image_default, true) }}"
-    marzban_inbound_tag: "{{ lookup('env', 'MARZBAN_INBOUND_TAG') | default(marzban_inbound_tag_default, true) }}"
-    marzban_reality_dest: "{{ lookup('env', 'MARZBAN_REALITY_DEST') | default(marzban_reality_dest_default, true) }}"
-    marzban_reality_server_names_csv: "{{ lookup('env', 'MARZBAN_REALITY_SERVER_NAMES') | default(marzban_reality_server_names_default, true) }}"
+    three_x_ui_image: "{{ lookup('env', 'THREE_X_UI_IMAGE') | default(three_x_ui_image_default, true) }}"
+    three_x_ui_web_base_path: "{{ lookup('env', 'THREE_X_UI_WEB_BASE_PATH') | default(three_x_ui_web_base_path_default, true) }}"
+    three_x_ui_panel_port: "{{ lookup('env', 'THREE_X_UI_PANEL_PORT') | default('2053', true) }}"
+    three_x_ui_sub_port: "{{ lookup('env', 'THREE_X_UI_SUB_PORT') | default('2096', true) }}"
+    three_x_ui_inbound_id: "{{ lookup('env', 'THREE_X_UI_INBOUND_ID') }}"
     app_image: "{{ lookup('env', 'APP_IMAGE') }}"
     ghcr_username: "{{ lookup('env', 'GHCR_USERNAME') }}"
     ghcr_token: "{{ lookup('env', 'GHCR_TOKEN') }}"
     telegram_bot_token: "{{ lookup('env', 'TELEGRAM_BOT_TOKEN') }}"
     encryption_key: "{{ lookup('env', 'ENCRYPTION_KEY') }}"
     app_db_password: "{{ lookup('env', 'APP_DB_PASSWORD') | default(vpn_admin_password, true) }}"
-    marzban_api_url: "http://127.0.0.1:8000/api"
   pre_tasks:
     - name: Validate required deployment variables
       ansible.builtin.assert:
@@ -32,17 +31,17 @@
           - domain_name | length > 0
           - vpn_admin_username | length > 0
           - vpn_admin_password | length > 0
-          - marzban_image | length > 0
-          - marzban_node_image | length > 0
-          - marzban_inbound_tag | length > 0
-          - marzban_reality_dest | length > 0
-          - marzban_reality_server_names_csv | length > 0
+          - three_x_ui_image | length > 0
+          - three_x_ui_web_base_path | length > 0
+          - three_x_ui_inbound_id | length > 0
+          - three_x_ui_panel_port | length > 0
+          - three_x_ui_sub_port | length > 0
           - app_image | length > 0
           - ghcr_username | length > 0
           - ghcr_token | length > 0
           - telegram_bot_token | length > 0
           - encryption_key | length > 0
-        fail_msg: "Required vars are missing for full production deploy."
+        fail_msg: "Required vars are missing for full production deploy (see THREE_X_UI_* and GHCR_*)."
   tasks:
     - name: Include master deploy tasks
       ansible.builtin.include_tasks: tasks/deploy/master.yml
@@ -51,42 +50,3 @@
       ansible.builtin.service:
         name: nginx
         state: reloaded
-
-- name: Deploy Marzban node on nodes
-  hosts: nodes
-  serial: 1
-  become: true
-  gather_facts: true
-  vars_files:
-    - vars/marzban.defaults.yml
-  vars:
-    deploy_root: "{{ lookup('env', 'DEPLOY_ROOT') | default('/opt/infrastructure', true) }}"
-    node_dir: "{{ deploy_root }}/node"
-    node_var_dir: "{{ node_dir }}/var"
-    cert_file: "{{ node_var_dir }}/ssl_client_cert.pem"
-    service_port: 62050
-    marzban_node_image: "{{ lookup('env', 'MARZBAN_NODE_IMAGE') | default(marzban_node_image_default, true) }}"
-  pre_tasks:
-    - name: Validate required deployment variables
-      ansible.builtin.assert:
-        that:
-          - marzban_node_image | length > 0
-        fail_msg: "MARZBAN_NODE_IMAGE is required."
-  tasks:
-    - name: Include node deploy tasks
-      ansible.builtin.include_tasks: tasks/deploy/node.yml
-
-- name: Finalize Marzban nodes on master
-  hosts: master
-  become: true
-  gather_facts: false
-  vars_files:
-    - vars/marzban.defaults.yml
-  vars:
-    vpn_admin_username: "{{ lookup('env', 'VPN_ADMIN_USERNAME') }}"
-    vpn_admin_password: "{{ lookup('env', 'VPN_ADMIN_PASSWORD') }}"
-    marzban_inbound_tag: "{{ lookup('env', 'MARZBAN_INBOUND_TAG') | default(marzban_inbound_tag_default, true) }}"
-    marzban_api_url: "http://127.0.0.1:8000/api"
-  tasks:
-    - name: Include master post-node deploy tasks
-      ansible.builtin.include_tasks: tasks/deploy/master-post-nodes.yml

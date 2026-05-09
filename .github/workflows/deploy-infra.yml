@@ -17,6 +17,8 @@ jobs:
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       VPN_ADMIN_USERNAME: ${{ secrets.VPN_ADMIN_USERNAME }}
       VPN_ADMIN_PASSWORD: ${{ secrets.VPN_ADMIN_PASSWORD }}
+      THREE_X_UI_INBOUND_ID: ${{ secrets.THREE_X_UI_INBOUND_ID }}
+      THREE_X_UI_WEB_BASE_PATH: ${{ secrets.THREE_X_UI_WEB_BASE_PATH }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
       GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
@@ -28,7 +30,7 @@ jobs:
       - name: Validate required secrets
         shell: bash
         run: |
-          for var in SERVER_IP INFRASTRUCTURE_IP_LIST DOMAIN_NAME SSH_PRIVATE_KEY VPN_ADMIN_USERNAME VPN_ADMIN_PASSWORD TELEGRAM_BOT_TOKEN ENCRYPTION_KEY GHCR_USERNAME GHCR_TOKEN; do
+          for var in SERVER_IP INFRASTRUCTURE_IP_LIST DOMAIN_NAME SSH_PRIVATE_KEY VPN_ADMIN_USERNAME VPN_ADMIN_PASSWORD THREE_X_UI_INBOUND_ID TELEGRAM_BOT_TOKEN ENCRYPTION_KEY GHCR_USERNAME GHCR_TOKEN; do
             if [ -z "${!var}" ]; then
               echo "::error::Missing required secret: $var"
               exit 1
@@ -163,6 +165,8 @@ jobs:
           DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
           VPN_ADMIN_USERNAME: ${{ secrets.VPN_ADMIN_USERNAME }}
           VPN_ADMIN_PASSWORD: ${{ secrets.VPN_ADMIN_PASSWORD }}
+          THREE_X_UI_INBOUND_ID: ${{ secrets.THREE_X_UI_INBOUND_ID }}
+          THREE_X_UI_WEB_BASE_PATH: ${{ secrets.THREE_X_UI_WEB_BASE_PATH }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
@@ -178,6 +182,8 @@ jobs:
           DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
           VPN_ADMIN_USERNAME: ${{ secrets.VPN_ADMIN_USERNAME }}
           VPN_ADMIN_PASSWORD: ${{ secrets.VPN_ADMIN_PASSWORD }}
+          THREE_X_UI_INBOUND_ID: ${{ secrets.THREE_X_UI_INBOUND_ID }}
+          THREE_X_UI_WEB_BASE_PATH: ${{ secrets.THREE_X_UI_WEB_BASE_PATH }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
@@ -186,13 +192,12 @@ jobs:
         run: |
           ansible-playbook -i inventory.ini playbooks/deploy.yml --private-key ../.tmp-keys/id_rsa
 
-      - name: Verify marzban containers on all hosts
+      - name: Verify 3x-ui container on master
         working-directory: ansible
         env:
           ANSIBLE_HOST_KEY_CHECKING: "False"
         run: |
-          ansible master -i inventory.ini -a "docker ps --filter name=marzban --format '{{\"{{.Names}}\"}}'" --private-key ../.tmp-keys/id_rsa
-          ansible nodes -i inventory.ini -a "docker ps --filter name=marzban-node --format '{{\"{{.Names}}\"}}'" --private-key ../.tmp-keys/id_rsa || true
+          ansible master -i inventory.ini -a "docker ps --filter name=3x-ui --format '{{\"{{.Names}}\"}}'" --private-key ../.tmp-keys/id_rsa
 
       - name: Cleanup temporary key material
         if: always()
