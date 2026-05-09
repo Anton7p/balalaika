@@ -36,7 +36,7 @@
 
 Инвентарь в CI **генерируется скриптом** из `SERVER_IP` и `INFRASTRUCTURE_IP_LIST` (см. шаги workflow). Локальный файл `ansible/inventory.ini` не должен попадать в git.
 
-Дефолты образа панели, web base path, порта VPN и Reality (dest/SNI и т.д.): `ansible/playbooks/vars/three-x-ui.defaults.yml`. Реализация авто-inbound: `ansible/playbooks/tasks/deploy/three-x-ui-inbound.yml`, скрипт `ansible/playbooks/scripts/three_x_ui_ensure_inbound.py`.
+Дефолты образа панели, web base path, порта VPN и Reality (dest/SNI и т.д.): `ansible/playbooks/vars/three-x-ui.defaults.yml`. Авто-inbound: `ansible/playbooks/tasks/deploy/three-x-ui-inbound.yml` (HTTP к панели на `127.0.0.1` через `ansible.builtin.uri`).
 
 ## Что хранится «в базах»
 
