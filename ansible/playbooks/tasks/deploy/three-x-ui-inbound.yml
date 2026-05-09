@@ -186,10 +186,12 @@
     dest: /tmp/balalaika-managed-inbound.json
     mode: "0600"
 
-- name: Build local 3x-ui URL facts (panel listens on loopback)
+# Paths follow MHSanaei/3x-ui web/web.go: engine.Group(basePath), IndexController GET /csrf-token,
+# APIController Group("/panel/api"). Prefix must match three_x_ui_web_base_path after x-ui setting + restart.
+- name: Normalize web base path prefix for loopback URLs
   ansible.builtin.set_fact:
     xui_origin: "http://127.0.0.1:{{ three_x_ui_panel_port | int }}"
-    xui_base_nt: >-
+    xui_path_prefix: >-
       {{
         (
           three_x_ui_web_base_path | default('/panel/') | trim
@@ -201,54 +203,32 @@
 
 - name: Compose 3x-ui login and API paths
   ansible.builtin.set_fact:
-    xui_login_url: >-
-      {{ xui_origin -}}
-      {%- if xui_base_nt | length > 0 -%}
-      /{{ xui_base_nt | regex_replace('^/', '') }}
-      {%- endif -%}
-      /
-    xui_login_post_url: >-
-      {{ xui_origin -}}
-      {%- if xui_base_nt | length > 0 -%}
-      /{{ xui_base_nt | regex_replace('^/', '') }}
-      {%- endif -%}
-      /login
-    xui_api_root: >-
-      {{ xui_origin -}}
-      {%- if xui_base_nt | length > 0 -%}
-      /{{ xui_base_nt | regex_replace('^/', '') }}
-      {%- endif -%}
-      /panel/api
+    xui_csrf_url: "{{ xui_origin }}{{ xui_path_prefix }}/csrf-token"
+    xui_login_post_url: "{{ xui_origin }}{{ xui_path_prefix }}/login"
+    xui_api_root: "{{ xui_origin }}{{ xui_path_prefix }}/panel/api"
 
-- name: Fetch 3x-ui login page for CSRF (SPA meta tag)
+- name: Fetch CSRF token JSON (3x-ui SPA pre-login endpoint)
   ansible.builtin.uri:
-    url: "{{ xui_login_url }}"
+    url: "{{ xui_csrf_url }}"
     method: GET
-    return_content: true
     headers:
-      Accept: "text/html,application/xhtml+xml,*/*"
+      Accept: "application/json"
+    return_content: true
     status_code: [200]
     timeout: 60
-  register: xui_login_get
+  register: xui_csrf_get
 
-- name: Extract CSRF token from login HTML
+- name: Materialize CSRF string from JSON
   ansible.builtin.set_fact:
-    xui_csrf_matches: >-
-      {{
-        xui_login_get.content
-        | regex_findall('<meta\\s+name="csrf-token"\\s+content="([^"]+)"', ignorecase=True)
-      }}
-
-- name: Materialize CSRF string
-  ansible.builtin.set_fact:
-    xui_csrf: "{{ xui_csrf_matches[0] if (xui_csrf_matches | length) > 0 else '' }}"
+    xui_csrf: "{{ xui_csrf_get.json.obj | default('') }}"
 
 - name: Require CSRF token
   ansible.builtin.assert:
     that:
       - xui_csrf | length > 0
+      - xui_csrf_get.json.success | default(false) | bool
     fail_msg: >-
-      Could not parse csrf-token meta from {{ xui_login_url }} (panel webBasePath / routing).
+      CSRF bootstrap failed at {{ xui_csrf_url }} (check webBasePath matches nginx /panel/ and panel was restarted).
 
 - name: Login to 3x-ui (session cookie)
   ansible.builtin.uri:
@@ -262,7 +242,7 @@
       X-CSRF-Token: "{{ xui_csrf }}"
       X-Requested-With: XMLHttpRequest
       Accept: "application/json"
-    cookies: "{{ xui_login_get.cookies | default({}, true) }}"
+    cookies: "{{ xui_csrf_get.cookies | default({}, true) }}"
     return_content: true
     status_code: [200]
     timeout: 60
@@ -278,7 +258,7 @@
   ansible.builtin.set_fact:
     xui_cookies: >-
       {{
-        (xui_login_get.cookies | default({}, true))
+        (xui_csrf_get.cookies | default({}, true))
         | combine(xui_login_post.cookies | default({}, true))
       }}
 
