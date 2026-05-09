@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+from typing import Optional
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.parse
@@ -12,6 +14,10 @@ import urllib.request
 from http.cookiejar import CookieJar
 
 CSRF_HEADER = "X-CSRF-Token"
+CSRF_META_RE = re.compile(
+    r'<meta\s+name="csrf-token"\s+content="([^"]+)"',
+    re.IGNORECASE,
+)
 
 
 def fetch_json(
@@ -68,21 +74,84 @@ def opener_with_cookies() -> urllib.request.OpenerDirector:
     return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
 
 
-def csrf_token(op: urllib.request.OpenerDirector, base_url: str) -> str:
+def login_page_url(og: str, raw_base: str) -> str:
+    """Same idea as Nest ThreeXUiVpnProvider: GET panelOrigin + webBasePath (with trailing slash)."""
+    p = raw_base.strip()
+    if not p.startswith("/"):
+        p = "/" + p
+    if not p.endswith("/"):
+        p = p + "/"
+    return og + p
+
+
+def try_read_html(op: urllib.request.OpenerDirector, url: str) -> Optional[str]:
     req = urllib.request.Request(
-        f"{base_url}/csrf-token",
+        url,
+        headers={"Accept": "text/html,application/xhtml+xml,*/*"},
+        method="GET",
+    )
+    try:
+        with op.open(req, timeout=60) as resp:
+            return resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as e:
+        print(f"login-html: HTTP {e.code} url={url!r}", file=sys.stderr)
+        return None
+    except urllib.error.URLError as e:
+        print(f"login-html: URL error {e.reason!r} url={url!r}", file=sys.stderr)
+        return None
+
+
+def try_csrf_json_url(op: urllib.request.OpenerDirector, url: str) -> Optional[str]:
+    req = urllib.request.Request(
+        url,
         headers={"Accept": "application/json"},
         method="GET",
     )
-    _, data = fetch_json(op, req, "csrf-token", timeout=60)
+    try:
+        with op.open(req, timeout=60) as resp:
+            raw = resp.read().decode("utf-8", errors="replace")
+        data = json.loads(raw) if raw.strip() else {}
+    except urllib.error.HTTPError:
+        return None
+    except (urllib.error.URLError, json.JSONDecodeError):
+        return None
     if not data.get("success"):
-        print(f"csrf-token: unexpected response: {data}", file=sys.stderr)
-        sys.exit(1)
+        return None
     obj = data.get("obj")
-    if not isinstance(obj, str) or not obj:
-        print(f"csrf-token: missing token: {data}", file=sys.stderr)
-        sys.exit(1)
-    return obj
+    if isinstance(obj, str) and obj:
+        return obj
+    return None
+
+
+def obtain_csrf(op: urllib.request.OpenerDirector, og: str, raw_base_path: str) -> str:
+    """3x-ui SPA: meta on login page; JSON /csrf-token may 404 depending on base path / version."""
+    lp = login_page_url(og, raw_base_path)
+    html = try_read_html(op, lp)
+    if html:
+        m = CSRF_META_RE.search(html)
+        if m and m.group(1):
+            print(f"csrf: from login page meta tags {lp!r}", file=sys.stderr)
+            return m.group(1)
+
+    tried: list[str] = [lp]
+    base_nt = norm_base(raw_base_path)
+    json_candidates: list[str] = []
+    if base_nt:
+        json_candidates.append(f"{og}{base_nt}/csrf-token")
+    json_candidates.append(f"{og}/csrf-token")
+    for url in json_candidates:
+        tried.append(url)
+        tok = try_csrf_json_url(op, url)
+        if tok:
+            print(f"csrf: from JSON endpoint {url!r}", file=sys.stderr)
+            return tok
+
+    print(
+        "csrf: failed — tried login HTML + JSON fallbacks: "
+        + ", ".join(repr(t) for t in tried),
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 def post_login(
@@ -210,9 +279,8 @@ def main() -> None:
         body_payload = json.load(f)
 
     op = opener_with_cookies()
-    pre_csrf = csrf_token(op, base_url)
-    post_login(op, base_url, args.username, args.password, pre_csrf)
-    csrf = csrf_token(op, base_url)
+    csrf = obtain_csrf(op, og, args.base_path)
+    post_login(op, base_url, args.username, args.password, csrf)
 
     rows = get_inbounds(op, api_root, csrf)
 
