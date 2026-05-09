@@ -22,6 +22,11 @@
     dest: "{{ panel_dir }}/docker-compose.yml"
     mode: "0644"
 
+- name: Pull latest Marzban panel image
+  ansible.builtin.command:
+    cmd: docker compose pull
+    chdir: "{{ panel_dir }}"
+
 - name: Start/update Marzban panel stack
   ansible.builtin.command:
     cmd: docker compose up -d
@@ -228,69 +233,6 @@
     marzban_node_certificate: "{{ node_settings.json.certificate }}"
     cacheable: true
   no_log: true
-
-- name: Fetch existing registered nodes
-  ansible.builtin.uri:
-    url: "{{ marzban_api_url }}/nodes"
-    method: GET
-    headers:
-      Authorization: "Bearer {{ master_auth.json.access_token }}"
-    status_code: 200
-    return_content: true
-    timeout: 20
-  register: existing_nodes
-  no_log: true
-
-- name: Register missing infrastructure nodes in Marzban
-  ansible.builtin.uri:
-    url: "{{ marzban_api_url }}/node"
-    method: POST
-    headers:
-      Authorization: "Bearer {{ master_auth.json.access_token }}"
-      Content-Type: application/json
-    body_format: json
-    body:
-      name: "{{ item | replace('.', '-') }}"
-      address: "{{ hostvars[item].ansible_host | default(item) }}"
-      port: 62050
-      api_prefix: "{{ (hostvars[item].ansible_host | default(item)) | hash('sha1') | regex_replace('^(.{8}).*$', '\\1') }}"
-      certificate: "{{ marzban_node_certificate }}"
-    status_code: [200, 201, 409]
-    timeout: 30
-  loop: "{{ groups['nodes'] | default([]) }}"
-  loop_control:
-    label: "{{ item }}"
-  when: >
-    groups['nodes'] is defined and
-    (
-      existing_nodes.json | selectattr('address', 'equalto', (hostvars[item].ansible_host | default(item))) | list | length
-    ) == 0
-  no_log: true
-
-- name: Wait until each node reports connected in Marzban
-  ansible.builtin.uri:
-    url: "{{ marzban_api_url }}/nodes"
-    method: GET
-    headers:
-      Authorization: "Bearer {{ master_auth.json.access_token }}"
-    status_code: 200
-    return_content: true
-    timeout: 20
-  register: nodes_connected_poll
-  retries: 20
-  delay: 6
-  until: >
-    (
-      nodes_connected_poll.json
-      | selectattr('address', 'equalto', (hostvars[item].ansible_host | default(item)))
-      | map(attribute='status')
-      | first
-      | default('')
-    ) == 'connected'
-  loop: "{{ groups['nodes'] | default([]) }}"
-  loop_control:
-    label: "{{ item }}"
-  when: groups['nodes'] is defined
 
 - name: Check SSL certificate presence
   ansible.builtin.stat:

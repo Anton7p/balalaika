@@ -1,6 +1,6 @@
 ---
-marzban_image_default: "gozargah/marzban:v0.8.4"
-marzban_node_image_default: "gozargah/marzban-node:v0.5.2"
+marzban_image_default: "gozargah/marzban:latest"
+marzban_node_image_default: "gozargah/marzban-node:latest"
 marzban_inbound_tag_default: "VLESS TCP REALITY"
 marzban_reality_dest_default: "google.com:443"
 marzban_reality_server_names_default: "google.com,www.google.com"

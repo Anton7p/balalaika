@@ -75,3 +75,18 @@
   tasks:
     - name: Include node deploy tasks
       ansible.builtin.include_tasks: tasks/deploy/node.yml
+
+- name: Finalize Marzban nodes on master
+  hosts: master
+  become: true
+  gather_facts: false
+  vars_files:
+    - vars/marzban.defaults.yml
+  vars:
+    vpn_admin_username: "{{ lookup('env', 'VPN_ADMIN_USERNAME') }}"
+    vpn_admin_password: "{{ lookup('env', 'VPN_ADMIN_PASSWORD') }}"
+    marzban_inbound_tag: "{{ lookup('env', 'MARZBAN_INBOUND_TAG') | default(marzban_inbound_tag_default, true) }}"
+    marzban_api_url: "http://127.0.0.1:8000/api"
+  tasks:
+    - name: Include master post-node deploy tasks
+      ansible.builtin.include_tasks: tasks/deploy/master-post-nodes.yml
