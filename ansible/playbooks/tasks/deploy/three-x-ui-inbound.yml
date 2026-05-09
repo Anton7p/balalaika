@@ -68,9 +68,16 @@
 
 - name: Reality — generate keypair via located Xray binary
   ansible.builtin.shell: |
-    docker exec 3x-ui "{{ three_x_ui_xray_bin.stdout | trim }}" x25519 | python3 <<'PY'
-    import sys, re, json
-    text = sys.stdin.read()
+    set -euo pipefail
+    XRAY_X25519_OUT="$(docker exec 3x-ui "{{ three_x_ui_xray_bin.stdout | trim }}" x25519 2>&1)"
+    export XRAY_X25519_OUT
+    python3 <<'PY'
+    import json
+    import os
+    import re
+    import sys
+
+    text = os.environ.get("XRAY_X25519_OUT", "")
 
     def grab(pat: str) -> str:
         m = re.search(pat, text)
@@ -79,7 +86,9 @@
     priv = grab(r"PrivateKey:\s*(\S+)")
     pub = grab(r"PublicKey:\s*(\S+)") or grab(r"Password:\s*(\S+)")
     if not priv or not pub:
-        sys.stderr.write("x25519: could not parse PrivateKey/PublicKey from:\\n" + repr(text[:500]))
+        sys.stderr.write(
+            "x25519: could not parse PrivateKey/PublicKey from:\\n" + repr(text[:500])
+        )
         sys.exit(1)
     print(json.dumps({"privateKey": priv, "publicKey": pub}))
     PY
