@@ -8,10 +8,10 @@ export function createTelegramApiAgent(proxyUrl: string): http.Agent {
   const trimmed = proxyUrl.trim();
   const u = new URL(trimmed);
   if (u.protocol === 'socks5:' || u.protocol === 'socks4:') {
-    return new SocksProxyAgent(trimmed) as unknown as http.Agent;
+    return new SocksProxyAgent(trimmed);
   }
   if (u.protocol === 'http:' || u.protocol === 'https:') {
-    return new HttpsProxyAgent(trimmed) as unknown as http.Agent;
+    return new HttpsProxyAgent(trimmed);
   }
   throw new Error(
     `TELEGRAM_PROXY_URL: неподдерживаемая схема "${u.protocol}" (ожидались socks5:, socks4:, http:, https:)`,

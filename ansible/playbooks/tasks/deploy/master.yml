@@ -10,13 +10,7 @@
     - "{{ app_dir }}"
     - "{{ certbot_webroot }}"
 
-- name: Ensure VPN inbound port is open in UFW
-  community.general.ufw:
-    rule: allow
-    port: "50443"
-    proto: tcp
-
-- name: Ensure 3x-ui panel and subscription ports in UFW
+- name: Ensure 3x-ui panel, subscription, and VPN data port in UFW
   community.general.ufw:
     rule: allow
     port: "{{ item }}"
@@ -24,6 +18,7 @@
   loop:
     - "{{ three_x_ui_panel_port }}"
     - "{{ three_x_ui_sub_port }}"
+    - "{{ three_x_ui_vpn_port }}"
 
 - name: Deploy 3x-ui panel compose file
   ansible.builtin.template:
@@ -61,6 +56,21 @@
   until: xui_setting.rc == 0
   changed_when: xui_setting.rc == 0
   no_log: true
+
+- name: Auto-create or resolve managed VPN inbound via 3x-ui API
+  ansible.builtin.include_tasks: three-x-ui-inbound.yml
+  when: three_x_ui_manage_inbound | bool
+
+- name: Use manual THREE_X_UI_INBOUND_ID when automation is disabled
+  ansible.builtin.set_fact:
+    three_x_ui_inbound_for_app: "{{ three_x_ui_inbound_id }}"
+  when: not (three_x_ui_manage_inbound | bool)
+
+- name: Inbound id must be resolved for the bot
+  ansible.builtin.assert:
+    that:
+      - three_x_ui_inbound_for_app is defined
+      - three_x_ui_inbound_for_app | string | length > 0
 
 - name: Deploy app stack compose file
   ansible.builtin.template:

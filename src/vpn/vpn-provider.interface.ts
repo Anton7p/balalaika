@@ -4,7 +4,9 @@ export interface VpnClientCreateParams {
 }
 
 export interface VpnProvider {
-  createClient(params: VpnClientCreateParams): Promise<{ connectionUri: string }>;
+  createClient(
+    params: VpnClientCreateParams,
+  ): Promise<{ connectionUri: string }>;
   deleteClient(externalId: string): Promise<void>;
   getStats(externalId: string): Promise<Record<string, unknown>>;
   /** Быстрая проверка доступности интеграции (для readiness). */

@@ -1,0 +1,10 @@
+{
+  "remark": {{ three_x_ui_managed_inbound_remark | to_json }},
+  "enable": true,
+  "listen": {{ three_x_ui_vpn_listen | to_json }},
+  "port": {{ three_x_ui_vpn_port | int }},
+  "protocol": "vless",
+  "settings": {{ three_x_ui_vless_settings | to_json | to_json }},
+  "streamSettings": {{ three_x_ui_vless_stream | to_json | to_json }},
+  "sniffing": {{ three_x_ui_sniffing | to_json | to_json }}
+}

@@ -17,7 +17,16 @@
     three_x_ui_web_base_path: "{{ lookup('env', 'THREE_X_UI_WEB_BASE_PATH') | default(three_x_ui_web_base_path_default, true) }}"
     three_x_ui_panel_port: "{{ lookup('env', 'THREE_X_UI_PANEL_PORT') | default('2053', true) }}"
     three_x_ui_sub_port: "{{ lookup('env', 'THREE_X_UI_SUB_PORT') | default('2096', true) }}"
-    three_x_ui_inbound_id: "{{ lookup('env', 'THREE_X_UI_INBOUND_ID') }}"
+    three_x_ui_inbound_id: "{{ lookup('env', 'THREE_X_UI_INBOUND_ID') | default('', true) }}"
+    three_x_ui_manage_inbound: >-
+      {{
+        (lookup('env', 'THREE_X_UI_MANAGE_INBOUND') | default('', true) | trim | lower)
+        not in ['false', '0', 'no']
+      }}
+    three_x_ui_reality_private_key_override: "{{ lookup('env', 'THREE_X_UI_REALITY_PRIVATE_KEY') | default('', true) }}"
+    three_x_ui_reality_public_key_override: "{{ lookup('env', 'THREE_X_UI_REALITY_PUBLIC_KEY') | default('', true) }}"
+    three_x_ui_vpn_port: "{{ lookup('env', 'THREE_X_UI_VPN_PORT') | default('8443', true) }}"
+    three_x_ui_managed_inbound_remark: "{{ lookup('env', 'THREE_X_UI_MANAGED_INBOUND_REMARK') | default('balalaika-bot', true) }}"
     app_image: "{{ lookup('env', 'APP_IMAGE') }}"
     ghcr_username: "{{ lookup('env', 'GHCR_USERNAME') }}"
     ghcr_token: "{{ lookup('env', 'GHCR_TOKEN') }}"
@@ -33,7 +42,6 @@
           - vpn_admin_password | length > 0
           - three_x_ui_image | length > 0
           - three_x_ui_web_base_path | length > 0
-          - three_x_ui_inbound_id | length > 0
           - three_x_ui_panel_port | length > 0
           - three_x_ui_sub_port | length > 0
           - app_image | length > 0
@@ -41,7 +49,13 @@
           - ghcr_token | length > 0
           - telegram_bot_token | length > 0
           - encryption_key | length > 0
-        fail_msg: "Required vars are missing for full production deploy (see THREE_X_UI_* and GHCR_*)."
+          - three_x_ui_manage_inbound | bool or (three_x_ui_inbound_id | length > 0)
+          - >
+            (three_x_ui_inbound_id | length == 0)
+            or (three_x_ui_inbound_id is match('^[0-9]+$'))
+        fail_msg: >-
+          Required vars missing, or THREE_X_UI_MANAGE_INBOUND is false but THREE_X_UI_INBOUND_ID is empty,
+          or THREE_X_UI_INBOUND_ID is not a positive integer string.
   tasks:
     - name: Include master deploy tasks
       ansible.builtin.include_tasks: tasks/deploy/master.yml

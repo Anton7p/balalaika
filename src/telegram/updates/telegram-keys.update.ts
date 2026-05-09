@@ -1,11 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
-import {
-  Action,
-  Command,
-  Ctx,
-  Update,
-} from 'nestjs-telegraf';
+import { Action, Command, Ctx, Update } from 'nestjs-telegraf';
 import type { Context } from 'telegraf';
 import { ACTIONS } from '../../common/content/actions';
 import {

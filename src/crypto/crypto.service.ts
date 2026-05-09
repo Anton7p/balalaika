@@ -24,10 +24,7 @@ export class CryptoService {
   encryptUtf8(plain: string): string {
     const iv = randomBytes(IV_LEN);
     const cipher = createCipheriv('aes-256-gcm', this.key, iv);
-    const enc = Buffer.concat([
-      cipher.update(plain, 'utf8'),
-      cipher.final(),
-    ]);
+    const enc = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
     const tag = cipher.getAuthTag();
     return Buffer.concat([iv, tag, enc]).toString('base64url');
   }

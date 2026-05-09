@@ -192,7 +192,9 @@ export class SubscriptionsService {
     }));
   }
 
-  async markSubscriptionEndedNotified(subscriptionIds: string[]): Promise<void> {
+  async markSubscriptionEndedNotified(
+    subscriptionIds: string[],
+  ): Promise<void> {
     if (subscriptionIds.length === 0) {
       return;
     }

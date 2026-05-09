@@ -27,7 +27,9 @@ export function createTelegramRateLimitMiddleware(
         await redis.expire(key, opts.windowSeconds);
       }
       if (n > opts.maxRequests) {
-        logger.warn(`telegram_rate_limited telegramUserId=${String(uid)} count=${String(n)}`);
+        logger.warn(
+          `telegram_rate_limited telegramUserId=${String(uid)} count=${String(n)}`,
+        );
         if (ctx.callbackQuery !== undefined) {
           await ctx
             .answerCbQuery('Слишком часто. Подождите немного.')

@@ -2,3 +2,22 @@
 three_x_ui_image_default: "ghcr.io/mhsanaei/3x-ui:latest"
 # Префикс веб-панели и логина API; CI не задаёт переменную окружения — используется это значение в deploy.yml.
 three_x_ui_web_base_path_default: "/panel/"
+
+# Авто-inbound для бота (VLESS + REALITY). Порт VPN задаётся в deploy.yml (по умолчанию 8443), не пересекать с nginx:443.
+three_x_ui_managed_inbound_remark: "balalaika-bot"
+three_x_ui_vpn_listen: ""
+three_x_ui_reality_dest: "www.cloudflare.com:443"
+three_x_ui_reality_server_names:
+  - "www.cloudflare.com"
+three_x_ui_reality_fingerprint: "chrome"
+
+three_x_ui_vless_settings:
+  clients: []
+  decryption: "none"
+  fallbacks: []
+
+three_x_ui_sniffing:
+  enabled: true
+  destOverride: ["http", "tls", "quic"]
+  metadataOnly: false
+  routeOnly: false

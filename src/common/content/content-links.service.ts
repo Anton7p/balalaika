@@ -1,10 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { LegalLink } from './legal-links';
-import {
-  LEGAL_LINK_DISPLAY_NAMES,
-  type LegalLinkKey,
-} from './legal-links';
+import { LEGAL_LINK_DISPLAY_NAMES, type LegalLinkKey } from './legal-links';
 import type { PlatformGuidesBundle, PlatformGuideKey } from './platform-guides';
 
 const LEGAL_URL_ENV: Record<LegalLinkKey, string> = {
@@ -54,12 +51,7 @@ export class ContentLinksService {
   }
 
   getPlatformGuides(): PlatformGuidesBundle {
-    const keys: PlatformGuideKey[] = [
-      'IOS',
-      'ANDROID',
-      'WINDOWS',
-      'MACOS',
-    ];
+    const keys: PlatformGuideKey[] = ['IOS', 'ANDROID', 'WINDOWS', 'MACOS'];
     const out: PlatformGuidesBundle = { ...PLATFORM_DEFAULT_URL };
     for (const key of keys) {
       const raw = this.config.get<string>(PLATFORM_URL_ENV[key]);

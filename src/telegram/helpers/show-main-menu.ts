@@ -7,7 +7,10 @@ import { MESSAGES } from '../../common/content/messages';
 import { resolveMainMenuPhotoPath } from '../../common/content/media';
 
 /** Главное меню: подпись «Добро пожаловать» + картинка из assets (как при /start). */
-export async function showMainMenu(ctx: Context, log: PinoLogger): Promise<void> {
+export async function showMainMenu(
+  ctx: Context,
+  log: PinoLogger,
+): Promise<void> {
   await ctx.answerCbQuery().catch(() => undefined);
   const caption = MESSAGES.MAIN_TITLE;
   const reply_markup = mainKeyboard().reply_markup;

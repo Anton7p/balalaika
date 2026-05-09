@@ -38,7 +38,7 @@ export class HttpGlobalExceptionFilter implements ExceptionFilter {
         : typeof body === 'object' &&
             body !== null &&
             'message' in body &&
-            typeof (body as { message: unknown }).message === 'string'
+            typeof body.message === 'string'
           ? (body as { message: string }).message
           : exception instanceof Error
             ? exception.message

@@ -129,7 +129,9 @@ export function keyDisplayKeyboard(): ReturnType<typeof Markup.inlineKeyboard> {
   ]);
 }
 
-export function extendSuccessKeyboard(): ReturnType<typeof Markup.inlineKeyboard> {
+export function extendSuccessKeyboard(): ReturnType<
+  typeof Markup.inlineKeyboard
+> {
   return Markup.inlineKeyboard([
     [Markup.button.callback(UI_LABELS.BACK_TO_MENU, ACTIONS.START_MENU)],
   ]);
