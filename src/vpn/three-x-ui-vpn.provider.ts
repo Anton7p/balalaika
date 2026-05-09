@@ -16,7 +16,7 @@ interface PanelMsg {
   readonly success?: boolean;
 }
 
-/** Фраза + "-" + telegram id (локальная часть email в панели). Латиница для совместимости с клиентами. */
+/** Фраза + "-" + telegram id в поле email панели (без @домена). Латиница для совместимости с клиентами. */
 const SUB_EMAIL_PHRASES = [
   'vse-letaet-ura',
   'vse-puchkom',
@@ -123,8 +123,8 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     return SUB_EMAIL_PHRASES[i] ?? SUB_EMAIL_PHRASES[0];
   }
 
-  /** Локальная часть email: `{фраза}-{telegramId}`; без tg — `{фраза}-anon-{hex}`. */
-  private panelEmailLocal(params: VpnClientCreateParams): string {
+  /** Идентификатор клиента в панели (поле email): `{фраза}-{telegramId}`; без tg — `{фраза}-anon-{hex}`. Без домена. */
+  private panelClientEmail(params: VpnClientCreateParams): string {
     const phrase = this.pickSubEmailPhrase();
     if (params.telegramUserId !== undefined) {
       return `${phrase}-${params.telegramUserId.toString()}`;
@@ -208,8 +208,7 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
   ): Promise<{ connectionUri: string }> {
     const inboundId = this.inboundId;
     const clientUuid = randomUUID();
-    const emailLocal = this.panelEmailLocal(params);
-    const email = `${emailLocal}@bot.local`;
+    const email = this.panelClientEmail(params);
     const subId = randomBytes(8).toString('hex');
     const comment =
       params.telegramUserId !== undefined
