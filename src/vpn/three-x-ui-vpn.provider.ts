@@ -16,18 +16,23 @@ interface PanelMsg {
   readonly success?: boolean;
 }
 
-/** Короткие ASCII‑суффиксы для «живого» имени в панели (кириллицу в email не кладём — ломает часть клиентов). */
-const SUB_EMAIL_SUFFIXES = [
-  'ogo-rabotaet',
-  'vpn-top',
-  'letim-bez-stop',
-  'vsyo-chisto',
-  'meshoka-net',
-  'internet-est',
-  'polet-norm',
-  'zhivy-zaryad',
-  'vpered-vpn',
-  'letay-chisto',
+/** Фраза + "-" + telegram id (локальная часть email в панели). Латиница для совместимости с клиентами. */
+const SUB_EMAIL_PHRASES = [
+  'vse-letaet-ura',
+  'vse-puchkom',
+  'prosto-skazka',
+  'vpn-krasavchik',
+  'lovit-otlichno',
+  'balalaika-igraet',
+  'medved-v-seti',
+  'balalaika-zhgi',
+  'medved-odobryaet',
+  'balalaika-letit',
+  'balalaika-vsegda-ryadom',
+  'gromkaya-balalaika',
+  'prosto-pushka',
+  'huak-i-rabotaet',
+  'vse-zaebis-rabotaet',
 ] as const;
 
 @Injectable()
@@ -113,19 +118,18 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
       .join('; ');
   }
 
-  private pickSubEmailSuffix(): string {
-    const i = Math.floor(Math.random() * SUB_EMAIL_SUFFIXES.length);
-    return SUB_EMAIL_SUFFIXES[i] ?? SUB_EMAIL_SUFFIXES[0];
+  private pickSubEmailPhrase(): string {
+    const i = Math.floor(Math.random() * SUB_EMAIL_PHRASES.length);
+    return SUB_EMAIL_PHRASES[i] ?? SUB_EMAIL_PHRASES[0];
   }
 
-  /** Локальная часть email для 3x-ui: только [a-z0-9-]. */
+  /** Локальная часть email: `{фраза}-{telegramId}`; без tg — `{фраза}-anon-{hex}`. */
   private panelEmailLocal(params: VpnClientCreateParams): string {
-    const vibe = this.pickSubEmailSuffix();
-    const bite = randomBytes(2).toString('hex');
+    const phrase = this.pickSubEmailPhrase();
     if (params.telegramUserId !== undefined) {
-      return `tg${params.telegramUserId.toString()}-${vibe}-${bite}`;
+      return `${phrase}-${params.telegramUserId.toString()}`;
     }
-    return `anon-${randomBytes(4).toString('hex')}-${vibe}-${bite}`;
+    return `${phrase}-anon-${randomBytes(4).toString('hex')}`;
   }
 
   private panelTgId(params: VpnClientCreateParams): number {
