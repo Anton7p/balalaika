@@ -10,11 +10,15 @@ export class VpnProvisioningService {
     @Inject(VPN_PROVIDER) private readonly vpn: VpnProvider,
   ) {}
 
-  async provisionConnection(planMonths: number): Promise<string> {
+  async provisionConnection(
+    planMonths: number,
+    telegramUserId?: bigint,
+  ): Promise<string> {
     const target = this.loadBalancer.selectTarget();
     const { connectionUri } = await this.vpn.createClient({
       label: `${target.nodeId}:${planMonths}`,
       planMonths,
+      telegramUserId,
     });
     return connectionUri;
   }

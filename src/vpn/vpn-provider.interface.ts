@@ -1,6 +1,8 @@
 export interface VpnClientCreateParams {
   readonly label: string;
   readonly planMonths: number;
+  /** Numeric Telegram user id для имени в панели; если нет — случайный анонимный префикс. */
+  readonly telegramUserId?: bigint;
 }
 
 export interface VpnProvider {

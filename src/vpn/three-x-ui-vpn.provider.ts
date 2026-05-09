@@ -16,6 +16,20 @@ interface PanelMsg {
   readonly success?: boolean;
 }
 
+/** Короткие ASCII‑суффиксы для «живого» имени в панели (кириллицу в email не кладём — ломает часть клиентов). */
+const SUB_EMAIL_SUFFIXES = [
+  'ogo-rabotaet',
+  'vpn-top',
+  'letim-bez-stop',
+  'vsyo-chisto',
+  'meshoka-net',
+  'internet-est',
+  'polet-norm',
+  'zhivy-zaryad',
+  'vpered-vpn',
+  'letay-chisto',
+] as const;
+
 @Injectable()
 export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
   private cookieHeader = '';
@@ -99,6 +113,32 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
       .join('; ');
   }
 
+  private pickSubEmailSuffix(): string {
+    const i = Math.floor(Math.random() * SUB_EMAIL_SUFFIXES.length);
+    return SUB_EMAIL_SUFFIXES[i] ?? SUB_EMAIL_SUFFIXES[0];
+  }
+
+  /** Локальная часть email для 3x-ui: только [a-z0-9-]. */
+  private panelEmailLocal(params: VpnClientCreateParams): string {
+    const vibe = this.pickSubEmailSuffix();
+    const bite = randomBytes(2).toString('hex');
+    if (params.telegramUserId !== undefined) {
+      return `tg${params.telegramUserId.toString()}-${vibe}-${bite}`;
+    }
+    return `anon-${randomBytes(4).toString('hex')}-${vibe}-${bite}`;
+  }
+
+  private panelTgId(params: VpnClientCreateParams): number {
+    const id = params.telegramUserId;
+    if (id === undefined) {
+      return 0;
+    }
+    if (id > BigInt(Number.MAX_SAFE_INTEGER)) {
+      return 0;
+    }
+    return Number(id);
+  }
+
   private expiryEpochMs(planMonths: number): number {
     const now = Date.now();
     if (planMonths === 0) {
@@ -164,9 +204,13 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
   ): Promise<{ connectionUri: string }> {
     const inboundId = this.inboundId;
     const clientUuid = randomUUID();
-    const emailLocal = `bal_${Date.now()}_${randomBytes(4).toString('hex')}`;
+    const emailLocal = this.panelEmailLocal(params);
     const email = `${emailLocal}@bot.local`;
     const subId = randomBytes(8).toString('hex');
+    const comment =
+      params.telegramUserId !== undefined
+        ? `${params.label} | tg:${params.telegramUserId.toString()}`
+        : params.label;
     const settingsObj = {
       clients: [
         {
@@ -177,9 +221,9 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
           totalGB: 0,
           expiryTime: this.expiryEpochMs(params.planMonths),
           enable: true,
-          tgId: 0,
+          tgId: this.panelTgId(params),
           subId,
-          comment: params.label,
+          comment,
         },
       ],
     };

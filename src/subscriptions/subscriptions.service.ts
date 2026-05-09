@@ -71,7 +71,10 @@ export class SubscriptionsService {
       idempotencyKey,
     });
 
-    const keyPlain = await this.vpnProvisioning.provisionConnection(planMonths);
+    const keyPlain = await this.vpnProvisioning.provisionConnection(
+      planMonths,
+      actorTelegramId,
+    );
     const expiresAt = this.computeExpiryEnd(planMonths);
     const vpnPayloadCipher = this.crypto.encryptUtf8(keyPlain);
 
