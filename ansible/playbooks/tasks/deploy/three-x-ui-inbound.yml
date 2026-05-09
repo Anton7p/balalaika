@@ -232,18 +232,32 @@
     that:
       - xui_login_post.json.success | default(false) | bool
 
-- name: Session cookies for 3x-ui API calls
+# ansible.legacy.uri on some controllers rejects `cookies:`; use a Cookie header instead.
+- name: Build Cookie header from login session
   ansible.builtin.set_fact:
-    xui_cookies: "{{ xui_login_post.cookies | default({}, true) }}"
+    xui_cookie_header: >-
+      {{
+        xui_login_post.cookies | default({}, true)
+        | dictsort
+        | map('join', '=')
+        | join('; ')
+      }}
+
+- name: Require Cookie header after login
+  ansible.builtin.assert:
+    that:
+      - xui_cookie_header | length > 0
+    fail_msg: >-
+      Login succeeded but uri returned no cookies dict; cannot call 3x-ui API (check ansible.builtin.uri / controller).
 
 - name: List inbounds from 3x-ui API
   ansible.builtin.uri:
     url: "{{ xui_api_root }}/inbounds/list"
     method: GET
     headers:
+      Cookie: "{{ xui_cookie_header }}"
       X-Requested-With: XMLHttpRequest
       Accept: "application/json"
-    cookies: "{{ xui_cookies }}"
     return_content: true
     status_code: [200]
     timeout: 60
@@ -296,9 +310,9 @@
         body_format: json
         body: "{{ xui_managed_body_b64.content | b64decode | from_json }}"
         headers:
+          Cookie: "{{ xui_cookie_header }}"
           X-Requested-With: XMLHttpRequest
           Accept: "application/json"
-        cookies: "{{ xui_cookies }}"
         return_content: true
         status_code: [200]
         timeout: 120
