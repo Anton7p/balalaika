@@ -84,7 +84,11 @@
         return m.group(1).strip() if m else ""
 
     priv = grab(r"PrivateKey:\s*(\S+)")
-    pub = grab(r"PublicKey:\s*(\S+)") or grab(r"Password:\s*(\S+)")
+    pub = (
+        grab(r"PublicKey:\s*(\S+)")
+        or grab(r"Password\s*\(PublicKey\):\s*(\S+)")
+        or grab(r"Password:\s*(\S+)")
+    )
     if not priv or not pub:
         sys.stderr.write(
             "x25519: could not parse PrivateKey/PublicKey from:\\n" + repr(text[:500])
