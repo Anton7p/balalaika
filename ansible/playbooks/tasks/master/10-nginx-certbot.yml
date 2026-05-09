@@ -19,6 +19,12 @@
     rule: allow
     name: Nginx Full
 
+- name: Allow Marzban Reality inbound port in firewall
+  community.general.ufw:
+    rule: allow
+    port: "50443"
+    proto: tcp
+
 - name: Request/renew certbot certificate for domain
   ansible.builtin.command:
     cmd: >-

@@ -10,6 +10,12 @@
     - "{{ app_dir }}"
     - "{{ certbot_webroot }}"
 
+- name: Ensure VPN inbound port is open in UFW
+  community.general.ufw:
+    rule: allow
+    port: "50443"
+    proto: tcp
+
 - name: Deploy Marzban panel compose file
   ansible.builtin.template:
     src: templates/marzban-master-compose.yml.j2
