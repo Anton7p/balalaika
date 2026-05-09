@@ -44,7 +44,6 @@
 
 - name: Reality — generate keypair via xray inside panel container
   ansible.builtin.shell: |
-    set -euo pipefail
     docker exec 3x-ui xray x25519 | python3 <<'PY'
     import sys, re, json
     text = sys.stdin.read()
@@ -60,6 +59,8 @@
         sys.exit(1)
     print(json.dumps({"privateKey": priv, "publicKey": pub}))
     PY
+  args:
+    executable: /bin/bash
   register: reality_gen
   changed_when: true
   when: three_x_ui_reality_private_key is not defined
