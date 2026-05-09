@@ -186,8 +186,11 @@
     dest: /tmp/balalaika-managed-inbound.json
     mode: "0600"
 
-# Paths follow MHSanaei/3x-ui web/web.go: engine.Group(basePath), IndexController GET /csrf-token,
-# APIController Group("/panel/api"). Prefix must match three_x_ui_web_base_path after x-ui setting + restart.
+# Loopback URLs vs nginx:
+# - webBasePath (x-ui setting + restart) is e.g. "/panel/"; UI login is POST {origin}{prefix}/login.
+# - REST API is mounted in upstream as Group("/panel/api") under that same web prefix → full path
+#   "{prefix}/panel/api/...", e.g. "/panel/panel/api/inbounds/list" (literal "/panel" twice: base path + api group).
+# - Nginx exposes only https://<domain>/panel/ → proxy_pass .../panel/; curl/Ansible on the host use 127.0.0.1.
 - name: Normalize web base path prefix for loopback URLs
   ansible.builtin.set_fact:
     xui_origin: "http://127.0.0.1:{{ three_x_ui_panel_port | int }}"
@@ -201,36 +204,12 @@
         | regex_replace('/$', '')
       }}
 
-- name: Compose 3x-ui login and API paths
+- name: Compose 3x-ui login and API paths (loopback)
   ansible.builtin.set_fact:
-    xui_csrf_url: "{{ xui_origin }}{{ xui_path_prefix }}/csrf-token"
     xui_login_post_url: "{{ xui_origin }}{{ xui_path_prefix }}/login"
     xui_api_root: "{{ xui_origin }}{{ xui_path_prefix }}/panel/api"
 
-- name: Fetch CSRF token JSON (3x-ui SPA pre-login endpoint)
-  ansible.builtin.uri:
-    url: "{{ xui_csrf_url }}"
-    method: GET
-    headers:
-      Accept: "application/json"
-    return_content: true
-    status_code: [200]
-    timeout: 60
-  register: xui_csrf_get
-
-- name: Materialize CSRF string from JSON
-  ansible.builtin.set_fact:
-    xui_csrf: "{{ xui_csrf_get.json.obj | default('') }}"
-
-- name: Require CSRF token
-  ansible.builtin.assert:
-    that:
-      - xui_csrf | length > 0
-      - xui_csrf_get.json.success | default(false) | bool
-    fail_msg: >-
-      CSRF bootstrap failed at {{ xui_csrf_url }} (check webBasePath matches nginx /panel/ and panel was restarted).
-
-- name: Login to 3x-ui (session cookie)
+- name: Login to 3x-ui (session cookie; form POST like curl -c, no CSRF preflight)
   ansible.builtin.uri:
     url: "{{ xui_login_post_url }}"
     method: POST
@@ -239,10 +218,9 @@
       username: "{{ vpn_admin_username }}"
       password: "{{ vpn_admin_password }}"
     headers:
-      X-CSRF-Token: "{{ xui_csrf }}"
       X-Requested-With: XMLHttpRequest
       Accept: "application/json"
-    cookies: "{{ xui_csrf_get.cookies | default({}, true) }}"
+    follow_redirects: all
     return_content: true
     status_code: [200]
     timeout: 60
@@ -254,20 +232,15 @@
     that:
       - xui_login_post.json.success | default(false) | bool
 
-- name: Merge cookies for authenticated API calls
+- name: Session cookies for 3x-ui API calls
   ansible.builtin.set_fact:
-    xui_cookies: >-
-      {{
-        (xui_csrf_get.cookies | default({}, true))
-        | combine(xui_login_post.cookies | default({}, true))
-      }}
+    xui_cookies: "{{ xui_login_post.cookies | default({}, true) }}"
 
 - name: List inbounds from 3x-ui API
   ansible.builtin.uri:
     url: "{{ xui_api_root }}/inbounds/list"
     method: GET
     headers:
-      X-CSRF-Token: "{{ xui_csrf }}"
       X-Requested-With: XMLHttpRequest
       Accept: "application/json"
     cookies: "{{ xui_cookies }}"
@@ -323,7 +296,6 @@
         body_format: json
         body: "{{ xui_managed_body_b64.content | b64decode | from_json }}"
         headers:
-          X-CSRF-Token: "{{ xui_csrf }}"
           X-Requested-With: XMLHttpRequest
           Accept: "application/json"
         cookies: "{{ xui_cookies }}"

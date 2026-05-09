@@ -56,8 +56,7 @@
   until: xui_setting.rc == 0
   changed_when: xui_setting.rc == 0
 
-# Base path is read at panel startup (web/web.go). Without restart, loopback API paths in
-# three-x-ui-inbound.yml stay wrong and CI hits 404 on /panel/csrf-token while DB still says "/".
+# webBasePath is applied at panel startup; without restart, DB may still say "/" while nginx/Ansible use /panel/.
 - name: Restart 3x-ui to apply webBasePath and credentials
   ansible.builtin.command:
     cmd: docker compose restart 3x-ui
@@ -72,12 +71,6 @@
 
 - name: Auto-create or resolve managed VPN inbound via 3x-ui API
   ansible.builtin.include_tasks: three-x-ui-inbound.yml
-  when: three_x_ui_manage_inbound | bool
-
-- name: Use manual THREE_X_UI_INBOUND_ID when automation is disabled
-  ansible.builtin.set_fact:
-    three_x_ui_inbound_for_app: "{{ three_x_ui_inbound_id }}"
-  when: not (three_x_ui_manage_inbound | bool)
 
 - name: Inbound id must be resolved for the bot
   ansible.builtin.assert:
