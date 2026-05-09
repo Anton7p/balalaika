@@ -26,6 +26,7 @@
     ghcr_username: "{{ lookup('env', 'GHCR_USERNAME') }}"
     ghcr_token: "{{ lookup('env', 'GHCR_TOKEN') }}"
     telegram_bot_token: "{{ lookup('env', 'TELEGRAM_BOT_TOKEN') }}"
+    telegram_admin_chat_id: "{{ lookup('env', 'TELEGRAM_ID_ADMIN') | default('', true) }}"
     encryption_key: "{{ lookup('env', 'ENCRYPTION_KEY') }}"
     app_db_password: "{{ lookup('env', 'APP_DB_PASSWORD') | default(vpn_admin_password, true) }}"
   pre_tasks:
