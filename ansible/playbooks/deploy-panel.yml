@@ -1,0 +1,50 @@
+---
+- name: Deploy 3x-ui panel and nginx edge on master (no bot app stack)
+  hosts: master
+  become: true
+  gather_facts: true
+  vars_files:
+    - vars/three-x-ui.defaults.yml
+  vars:
+    deploy_root: "{{ lookup('env', 'DEPLOY_ROOT') | default('/opt/infrastructure', true) }}"
+    panel_dir: "{{ deploy_root }}/panel"
+    app_dir: "{{ deploy_root }}/app"
+    certbot_webroot: /var/www/certbot
+    domain_name: "{{ lookup('env', 'DOMAIN_NAME') }}"
+    vpn_admin_username: "{{ lookup('env', 'VPN_ADMIN_USERNAME') }}"
+    vpn_admin_password: "{{ lookup('env', 'VPN_ADMIN_PASSWORD') }}"
+    three_x_ui_image: "{{ lookup('env', 'THREE_X_UI_IMAGE') | default(three_x_ui_image_default, true) }}"
+    three_x_ui_web_base_path: "{{ lookup('env', 'THREE_X_UI_WEB_BASE_PATH') | default(three_x_ui_web_base_path_default, true) }}"
+    three_x_ui_panel_port: "{{ lookup('env', 'THREE_X_UI_PANEL_PORT') | default('2053', true) }}"
+    three_x_ui_sub_port: "{{ lookup('env', 'THREE_X_UI_SUB_PORT') | default('2096', true) }}"
+    three_x_ui_inbound_id: "{{ lookup('env', 'THREE_X_UI_INBOUND_ID') | default('', true) }}"
+    three_x_ui_reality_private_key_override: "{{ lookup('env', 'THREE_X_UI_REALITY_PRIVATE_KEY') | default('', true) }}"
+    three_x_ui_reality_public_key_override: "{{ lookup('env', 'THREE_X_UI_REALITY_PUBLIC_KEY') | default('', true) }}"
+    three_x_ui_vpn_port: "{{ lookup('env', 'THREE_X_UI_VPN_PORT') | default('8443', true) }}"
+    three_x_ui_managed_inbound_remark: "{{ lookup('env', 'THREE_X_UI_MANAGED_INBOUND_REMARK') | default('balalaika-bot', true) }}"
+    telegram_bot_admin: "{{ lookup('env', 'TELEGRAM_BOT_ADMIN') | default('', true) }}"
+    telegram_admin_chat_id: "{{ lookup('env', 'TELEGRAM_ID_ADMIN') | default('', true) }}"
+  pre_tasks:
+    - name: Validate required panel deployment variables
+      ansible.builtin.assert:
+        that:
+          - domain_name | length > 0
+          - vpn_admin_username | length > 0
+          - vpn_admin_password | length > 0
+          - three_x_ui_image | length > 0
+          - three_x_ui_web_base_path | length > 0
+          - three_x_ui_panel_port | length > 0
+          - three_x_ui_sub_port | length > 0
+          - >
+            (three_x_ui_inbound_id | length == 0)
+            or (three_x_ui_inbound_id is match('^[0-9]+$'))
+        fail_msg: >-
+          Required vars missing for panel deploy, or THREE_X_UI_INBOUND_ID is set but is not a positive integer string.
+  tasks:
+    - name: Include panel-only deploy tasks
+      ansible.builtin.include_tasks: tasks/deploy/master-panel.yml
+  handlers:
+    - name: Reload nginx
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded

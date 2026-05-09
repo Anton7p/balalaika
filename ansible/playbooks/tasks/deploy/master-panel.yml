@@ -1,0 +1,6 @@
+---
+- name: Panel stack through managed inbound
+  ansible.builtin.include_tasks: master-through-inbound.yml
+
+- name: Nginx edge and TLS for panel/subscription
+  ansible.builtin.include_tasks: master-edge.yml

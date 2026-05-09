@@ -21,6 +21,7 @@
 |----------|------------|
 | **Bootstrap Infrastructure** | BBR, Docker, SSH-ключ, hardening, на master — nginx/certbot (первичная подготовка хостов). |
 | **Deploy Panel and Nodes** | Сборка образа бота в GHCR, Ansible `playbooks/deploy.yml`: 3x-ui + приложение + nginx под домен. |
+| **Deploy Panel Only** | Без сборки образа и без обновления стека бота: Ansible `playbooks/deploy-panel.yml` — 3x-ui, inbound, nginx/certbot (master из `SERVER_IP`). Секреты приложения (`TELEGRAM_BOT_TOKEN`, `GHCR_*`, …) не нужны. |
 
 Переменные окружения для Ansible в CI задаются секретами репозитория (имена без значений).
 
