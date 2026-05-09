@@ -15,10 +15,8 @@ export const ACTIONS = {
   PLATFORM_MACOS: 'platform_macos',
 
   FREE_TEST: 'free_test',
-  WEEK: 'week',
   MONTH_1: 'month_1',
   MONTH_3: 'month_3',
-  MONTH_6: 'month_6',
 
   /** Без payload: ключ брать из текста/caption сообщения или сессии (лимит callback_data). */
   COPY_KEY: 'copy_key',

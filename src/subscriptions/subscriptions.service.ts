@@ -47,9 +47,6 @@ export class SubscriptionsService {
     if (planMonths === 0) {
       return d.add(3, 'day').toDate();
     }
-    if (planMonths === 0.25) {
-      return d.add(7, 'day').toDate();
-    }
     const whole = Math.floor(planMonths);
     const remainder = planMonths - whole;
     d = d.add(whole, 'month');

@@ -43,16 +43,6 @@ export class PurchaseScene {
     });
   }
 
-  @Action(ACTIONS.WEEK)
-  async onWeek(@Ctx() ctx: Context): Promise<void> {
-    await replyWithNewSubscription(ctx, 0.25, {
-      usersService: this.usersService,
-      subscriptionsService: this.subscriptionsService,
-      pricingCatalog: this.pricingCatalog,
-      log: this.log,
-    });
-  }
-
   @Action(ACTIONS.MONTH_1)
   async onM1(@Ctx() ctx: Context): Promise<void> {
     await replyWithNewSubscription(ctx, 1, {
@@ -73,13 +63,4 @@ export class PurchaseScene {
     });
   }
 
-  @Action(ACTIONS.MONTH_6)
-  async onM6(@Ctx() ctx: Context): Promise<void> {
-    await replyWithNewSubscription(ctx, 6, {
-      usersService: this.usersService,
-      subscriptionsService: this.subscriptionsService,
-      pricingCatalog: this.pricingCatalog,
-      log: this.log,
-    });
-  }
 }

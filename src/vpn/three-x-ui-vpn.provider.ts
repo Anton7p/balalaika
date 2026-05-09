@@ -148,9 +148,6 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     if (planMonths === 0) {
       return now + 3 * 24 * 60 * 60 * 1000;
     }
-    if (planMonths === 0.25) {
-      return now + 7 * 24 * 60 * 60 * 1000;
-    }
     const days = Math.round(planMonths * 30);
     return now + days * 24 * 60 * 60 * 1000;
   }

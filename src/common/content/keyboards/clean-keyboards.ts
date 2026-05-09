@@ -54,13 +54,6 @@ export function durationKeyboard(): ReturnType<typeof Markup.inlineKeyboard> {
     ]);
   }
 
-  const week = ACCESS_PRICES.find((p) => p.months === 0.25);
-  if (week) {
-    rows.push([
-      Markup.button.callback(formatPaidPlanLabel(week), ACTIONS.WEEK),
-    ]);
-  }
-
   const month1 = ACCESS_PRICES.find((p) => p.months === 1);
   if (month1) {
     rows.push([
@@ -72,13 +65,6 @@ export function durationKeyboard(): ReturnType<typeof Markup.inlineKeyboard> {
   if (month3) {
     rows.push([
       Markup.button.callback(formatPaidPlanLabel(month3), ACTIONS.MONTH_3),
-    ]);
-  }
-
-  const month6 = ACCESS_PRICES.find((p) => p.months === 6);
-  if (month6) {
-    rows.push([
-      Markup.button.callback(formatPaidPlanLabel(month6), ACTIONS.MONTH_6),
     ]);
   }
 
