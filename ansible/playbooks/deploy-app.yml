@@ -16,6 +16,7 @@
     three_x_ui_panel_port: "{{ lookup('env', 'THREE_X_UI_PANEL_PORT') | default('2053', true) }}"
     three_x_ui_managed_inbound_remark: "{{ lookup('env', 'THREE_X_UI_MANAGED_INBOUND_REMARK') | default('balalaika-bot', true) }}"
     three_x_ui_inbound_id: "{{ lookup('env', 'THREE_X_UI_INBOUND_ID') | default('', true) | trim }}"
+    three_x_ui_loopback_http_host: "{{ lookup('env', 'THREE_X_UI_LOOPBACK_HTTP_HOST') | default('', true) | trim }}"
     app_image: "{{ lookup('env', 'APP_IMAGE') }}"
     ghcr_username: "{{ lookup('env', 'GHCR_USERNAME') }}"
     ghcr_token: "{{ lookup('env', 'GHCR_TOKEN') }}"

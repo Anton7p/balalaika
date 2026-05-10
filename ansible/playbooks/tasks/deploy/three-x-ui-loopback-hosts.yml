@@ -6,10 +6,16 @@
   ansible.builtin.set_fact:
     xui_panel_http_host: >-
       {{
-        (domain_name | default('127.0.0.1', true) | trim
-          | regex_replace('(?i)^https?://', '')
-          | regex_replace('/.*$', '')
-          | regex_replace(':[0-9]{1,5}$', ''))
+        (
+          (three_x_ui_loopback_http_host | default('', true) | trim)
+          if (three_x_ui_loopback_http_host | default('', true) | trim | length) > 0
+          else (
+            domain_name | default('127.0.0.1', true) | trim
+            | regex_replace('(?i)^https?://', '')
+            | regex_replace('/.*$', '')
+            | regex_replace(':[0-9]{1,5}$', '')
+          )
+        )
       }}
 
 - name: Map panel hostname to loopback in /etc/hosts for URL-based Host header
