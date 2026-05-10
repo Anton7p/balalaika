@@ -13,7 +13,9 @@
     vpn_admin_username: "{{ lookup('env', 'VPN_ADMIN_USERNAME') }}"
     vpn_admin_password: "{{ lookup('env', 'VPN_ADMIN_PASSWORD') }}"
     three_x_ui_web_base_path: "{{ lookup('env', 'THREE_X_UI_WEB_BASE_PATH') | default(three_x_ui_web_base_path_default, true) }}"
-    three_x_ui_inbound_for_app: "{{ lookup('env', 'THREE_X_UI_INBOUND_ID') | default('', true) }}"
+    three_x_ui_panel_port: "{{ lookup('env', 'THREE_X_UI_PANEL_PORT') | default('2053', true) }}"
+    three_x_ui_managed_inbound_remark: "{{ lookup('env', 'THREE_X_UI_MANAGED_INBOUND_REMARK') | default('balalaika-bot', true) }}"
+    three_x_ui_inbound_id: "{{ lookup('env', 'THREE_X_UI_INBOUND_ID') | default('', true) | trim }}"
     app_image: "{{ lookup('env', 'APP_IMAGE') }}"
     ghcr_username: "{{ lookup('env', 'GHCR_USERNAME') }}"
     ghcr_token: "{{ lookup('env', 'GHCR_TOKEN') }}"
@@ -32,11 +34,13 @@
           - ghcr_token | length > 0
           - telegram_bot_token | length > 0
           - encryption_key | length > 0
-          - three_x_ui_inbound_for_app | length > 0
-          - three_x_ui_inbound_for_app is match('^[0-9]+$')
         fail_msg: >-
           For deploy-app you need DOMAIN_NAME, VPN_ADMIN_*, APP_IMAGE, GHCR_*, TELEGRAM_BOT_TOKEN,
-          ENCRYPTION_KEY, and THREE_X_UI_INBOUND_ID (numeric inbound id already on the panel).
+          and ENCRYPTION_KEY. Inbound id comes from THREE_X_UI_INBOUND_ID or from the panel (remark
+          "{{ three_x_ui_managed_inbound_remark }}").
   tasks:
+    - name: Resolve THREE_X_UI_INBOUND_ID for app template
+      ansible.builtin.include_tasks: tasks/deploy/app-resolve-inbound-id.yml
+
     - name: Include bot-only deploy tasks
       ansible.builtin.include_tasks: tasks/deploy/app-only.yml

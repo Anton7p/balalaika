@@ -34,14 +34,20 @@
       Accept: application/json
     follow_redirects: all
     return_content: true
-    status_code: [200]
+    status_code: [200, 401, 403, 429, 502, 503]
     timeout: 60
   register: xui_login_tg
+  until: >-
+    xui_login_tg.status | default(0) == 200
+    and (xui_login_tg.json.success | default(false) | bool)
+  retries: 15
+  delay: 4
   no_log: true
 
 - name: Assert 3x-ui login succeeded for Telegram settings sync
   ansible.builtin.assert:
     that:
+      - xui_login_tg.status == 200
       - xui_login_tg.json.success | default(false) | bool
 
 - name: Build Cookie header for panel settings requests
