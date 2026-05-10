@@ -30,8 +30,9 @@ jobs:
       - name: Validate required secrets
         shell: bash
         run: |
+          # THREE_X_UI_INBOUND_ID опционален: Ansible находит inbound по remark или создаёт (см. three-x-ui-inbound).
           for var in SERVER_IP SSH_PRIVATE_KEY DOMAIN_NAME VPN_ADMIN_USERNAME VPN_ADMIN_PASSWORD \
-            THREE_X_UI_INBOUND_ID TELEGRAM_BOT_TOKEN ENCRYPTION_KEY GHCR_USERNAME GHCR_TOKEN; do
+            TELEGRAM_BOT_TOKEN ENCRYPTION_KEY GHCR_USERNAME GHCR_TOKEN; do
             if [ -z "${!var}" ]; then
               echo "::error::Missing required secret: $var"
               exit 1
