@@ -23,7 +23,8 @@
     three_x_ui_vpn_port: "{{ lookup('env', 'THREE_X_UI_VPN_PORT') | default('8443', true) }}"
     three_x_ui_managed_inbound_remark: "{{ lookup('env', 'THREE_X_UI_MANAGED_INBOUND_REMARK') | default('balalaika-bot', true) }}"
     telegram_bot_admin: "{{ lookup('env', 'TELEGRAM_BOT_ADMIN') | default('', true) }}"
-    telegram_admin_chat_id: "{{ lookup('env', 'TELEGRAM_ID_ADMIN') | default('', true) }}"
+    telegram_admin_id: "{{ lookup('env', 'TELEGRAM_ADMIN_ID') | default('', true) }}"
+    telegram_admin_chat_id: "{{ telegram_admin_id | default('', true) | trim }}"
     three_x_ui_loopback_http_host: "{{ lookup('env', 'THREE_X_UI_LOOPBACK_HTTP_HOST') | default('', true) | trim }}"
   pre_tasks:
     - name: Validate required panel deployment variables

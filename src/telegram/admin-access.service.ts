@@ -6,14 +6,11 @@ export class AdminAccessService {
   private readonly adminIds: Set<number>;
 
   constructor(private readonly config: ConfigService) {
-    const csv = this.config.get<string>('TELEGRAM_ADMIN_IDS') ?? '';
+    const raw = this.config.get<string>('TELEGRAM_ADMIN_ID') ?? '';
+    const trimmed = raw.trim();
+    const id = Number(trimmed);
     this.adminIds = new Set(
-      csv
-        .split(',')
-        .map((raw) => raw.trim())
-        .filter((raw) => raw.length > 0)
-        .map((raw) => Number(raw))
-        .filter((id) => Number.isSafeInteger(id)),
+      trimmed.length > 0 && Number.isSafeInteger(id) ? [id] : [],
     );
   }
 

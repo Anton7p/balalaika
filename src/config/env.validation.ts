@@ -59,10 +59,10 @@ export class EnvVars {
   @IsString()
   TELEGRAM_RL_KEY_PREFIX?: string;
 
-  /** CSV Telegram user IDs, которые могут использовать админ-команды бота. */
+  /** Один числовой User ID администратора бота (строкой из цифр). */
   @IsOptional()
   @IsString()
-  TELEGRAM_ADMIN_IDS?: string;
+  TELEGRAM_ADMIN_ID?: string;
 
   @IsString()
   @IsNotEmpty()

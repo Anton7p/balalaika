@@ -25,7 +25,7 @@ jobs:
       THREE_X_UI_SUB_PORT: ${{ secrets.THREE_X_UI_SUB_PORT }}
       THREE_X_UI_IMAGE: ${{ secrets.THREE_X_UI_IMAGE }}
       TELEGRAM_BOT_ADMIN: ${{ secrets.TELEGRAM_BOT_ADMIN }}
-      TELEGRAM_ID_ADMIN: ${{ secrets.TELEGRAM_ID_ADMIN }}
+      TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -82,7 +82,7 @@ jobs:
           THREE_X_UI_SUB_PORT: ${{ secrets.THREE_X_UI_SUB_PORT }}
           THREE_X_UI_IMAGE: ${{ secrets.THREE_X_UI_IMAGE }}
           TELEGRAM_BOT_ADMIN: ${{ secrets.TELEGRAM_BOT_ADMIN }}
-          TELEGRAM_ID_ADMIN: ${{ secrets.TELEGRAM_ID_ADMIN }}
+          TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
         run: |
           ansible-playbook -i inventory.ini playbooks/deploy-panel.yml --syntax-check
 
@@ -103,7 +103,7 @@ jobs:
           THREE_X_UI_SUB_PORT: ${{ secrets.THREE_X_UI_SUB_PORT }}
           THREE_X_UI_IMAGE: ${{ secrets.THREE_X_UI_IMAGE }}
           TELEGRAM_BOT_ADMIN: ${{ secrets.TELEGRAM_BOT_ADMIN }}
-          TELEGRAM_ID_ADMIN: ${{ secrets.TELEGRAM_ID_ADMIN }}
+          TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
         run: |
           ansible-playbook -i inventory.ini playbooks/deploy-panel.yml --private-key ../.tmp-keys/id_rsa
 

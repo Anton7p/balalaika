@@ -24,7 +24,7 @@ jobs:
       THREE_X_UI_MANAGED_INBOUND_REMARK: ${{ secrets.THREE_X_UI_MANAGED_INBOUND_REMARK }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_BOT_ADMIN: ${{ secrets.TELEGRAM_BOT_ADMIN }}
-      TELEGRAM_ID_ADMIN: ${{ secrets.TELEGRAM_ID_ADMIN }}
+      TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
       ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
       GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
@@ -111,7 +111,7 @@ jobs:
           THREE_X_UI_MANAGED_INBOUND_REMARK: ${{ secrets.THREE_X_UI_MANAGED_INBOUND_REMARK }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_BOT_ADMIN: ${{ secrets.TELEGRAM_BOT_ADMIN }}
-          TELEGRAM_ID_ADMIN: ${{ secrets.TELEGRAM_ID_ADMIN }}
+          TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
@@ -133,7 +133,7 @@ jobs:
           THREE_X_UI_MANAGED_INBOUND_REMARK: ${{ secrets.THREE_X_UI_MANAGED_INBOUND_REMARK }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_BOT_ADMIN: ${{ secrets.TELEGRAM_BOT_ADMIN }}
-          TELEGRAM_ID_ADMIN: ${{ secrets.TELEGRAM_ID_ADMIN }}
+          TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
