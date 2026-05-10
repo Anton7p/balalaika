@@ -76,26 +76,34 @@
             | trim
           }}
 
-    - name: Drop trailing port if present
+    # Нельзя делить по всем «:» — IPv4 вида 62.60.229.227 превратится в «62». Снимаем только суффикс :порт.
+    - name: Drop trailing TCP port suffix (:digits)
       ansible.builtin.set_fact:
-        _n: "{{ (_n.split(':') | first) | trim }}"
+        _n: "{{ _n | regex_replace(':[0-9]{1,5}$', '') | trim }}"
 
-    - name: Resolve parseable master host (hostname, IPv4, or first token)
+    # IPv4 раньше «общего» паттерна: класс [._-] в середине [A-Za-z0-9._-] даёт неочевидные диапазоны в regex.
+    - name: Resolve parseable master host (IPv4, hostname, or first sane token)
       ansible.builtin.set_fact:
         ci_master_host: >-
-          {% if _n is match('^[A-Za-z0-9._-]+$') %}
+          {% if _n | regex_search('^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$') %}
+          {{ _n }}
+          {% elif _n is match('^[-0-9A-Za-z_.]+$') %}
           {{ _n }}
           {% elif _n | regex_search('(?:[0-9]{1,3}\.){3}[0-9]{1,3}') %}
           {{ _n | regex_search('(?:[0-9]{1,3}\.){3}[0-9]{1,3}') }}
           {% else %}
-          {{ _n | regex_search('[A-Za-z0-9._-]+') | default('', true) }}
+          {{ _n | regex_search('[-0-9A-Za-z_.]+') | default('', true) }}
           {% endif %}
+
+    - name: Normalize resolved master host whitespace
+      ansible.builtin.set_fact:
+        ci_master_host: "{{ ci_master_host | trim }}"
 
     - name: Validate resolved SERVER_IP
       ansible.builtin.assert:
         that:
           - ci_master_host | length > 0
-          - ci_master_host is match('^[A-Za-z0-9._-]+$')
+          - ci_master_host is match('^[-0-9A-Za-z_.]+$')
         fail_msg: SERVER_IP is not parseable
 
     - name: Alias master password for template
