@@ -31,6 +31,7 @@
         body_format: json
         body: "{{ xui_managed_body_b64.content | b64decode | from_json }}"
         headers:
+          Host: "{{ xui_panel_http_host }}"
           Cookie: "{{ xui_cookie_header }}"
           X-Requested-With: XMLHttpRequest
           Accept: "application/json"

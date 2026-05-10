@@ -5,6 +5,13 @@
 - name: Normalize loopback URL prefix for 3x-ui panel (same rules as inbound playbook)
   ansible.builtin.set_fact:
     xui_origin_tg: "http://127.0.0.1:{{ three_x_ui_panel_port | int }}"
+    xui_panel_http_host: >-
+      {{
+        (domain_name | default('127.0.0.1', true) | trim
+          | regex_replace('(?i)^https?://', '')
+          | regex_replace('/.*$', '')
+          | regex_replace(':[0-9]{1,5}$', ''))
+      }}
     xui_path_prefix_tg: >-
       {{
         (
@@ -30,6 +37,7 @@
       username: "{{ vpn_admin_username }}"
       password: "{{ vpn_admin_password }}"
     headers:
+      Host: "{{ xui_panel_http_host }}"
       X-Requested-With: XMLHttpRequest
       Accept: application/json
     follow_redirects: all
@@ -70,6 +78,7 @@
     url: "{{ xui_setting_all_url_tg }}"
     method: POST
     headers:
+      Host: "{{ xui_panel_http_host }}"
       Cookie: "{{ xui_cookie_header_tg }}"
       Accept: application/json
     return_content: true
@@ -123,6 +132,7 @@
     body_format: json
     body: "{{ xui_setting_update_body_tg }}"
     headers:
+      Host: "{{ xui_panel_http_host }}"
       Cookie: "{{ xui_cookie_header_tg }}"
       Accept: application/json
     return_content: true

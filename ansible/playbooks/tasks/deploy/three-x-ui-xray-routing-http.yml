@@ -11,6 +11,7 @@
     url: "{{ xui_origin }}{{ xui_path_prefix }}/panel/xray/"
     method: POST
     headers:
+      Host: "{{ xui_panel_http_host }}"
       Cookie: "{{ xui_cookie_header }}"
       X-Requested-With: XMLHttpRequest
       Accept: application/json
@@ -122,6 +123,7 @@
       xraySetting: "{{ xui_xray_setting_json }}"
       outboundTestUrl: "{{ xui_outbound_test_url }}"
     headers:
+      Host: "{{ xui_panel_http_host }}"
       Cookie: "{{ xui_cookie_header }}"
       Accept: application/json
       X-Requested-With: XMLHttpRequest
