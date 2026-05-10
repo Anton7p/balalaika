@@ -72,7 +72,7 @@
   ansible.builtin.include_tasks: three-x-ui-telegram-http.yml
 
 - name: Auto-create or resolve managed VPN inbound via 3x-ui API
-  ansible.builtin.include_tasks: three-x-ui-inbound.yml
+  ansible.builtin.include_tasks: three-x-ui-inbound/main.yml
 
 - name: Inbound id must be resolved for the bot
   ansible.builtin.assert:

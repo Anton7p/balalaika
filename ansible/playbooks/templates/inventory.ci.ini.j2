@@ -1,0 +1,25 @@
+[master]
+master_host ansible_host={{ ci_master_host }} ansible_user=root{% if ci_master_password | default('') | length > 0 %} ansible_password='{{ ci_master_password }}'{% endif %}
+
+{% if ci_inventory_mode == 'cluster' %}
+[nodes]
+{% set ns = namespace(idx=1) %}
+{% for item in ci_hosts_list %}
+{% if item is mapping %}
+{% set addr = item.address | default('', true) | trim %}
+{% set pwd = item.password | default('', true) | trim %}
+{% else %}
+{% set addr = item | trim | string %}
+{% set pwd = '' %}
+{% endif %}
+{% if addr | length > 0 and addr != ci_master_host %}
+node{{ ns.idx }} ansible_host={{ addr }} ansible_user=root{% if pwd | length > 0 %} ansible_password='{{ pwd }}'{% endif %}
+
+{% set ns.idx = ns.idx + 1 %}
+{% endif %}
+{% endfor %}
+
+{% endif %}
+[all:vars]
+ansible_connection=ssh
+ansible_become=true

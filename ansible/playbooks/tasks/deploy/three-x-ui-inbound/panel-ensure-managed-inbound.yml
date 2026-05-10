@@ -1,0 +1,50 @@
+---
+# Prefer pinned id from CI; else match remark; else POST /inbounds/add from rendered JSON.
+
+- name: Use pinned inbound id when configured and present
+  ansible.builtin.set_fact:
+    three_x_ui_inbound_for_app: "{{ three_x_ui_inbound_id }}"
+  when:
+    - three_x_ui_inbound_id | length > 0
+    - (three_x_ui_inbound_id | int) in (xui_inbound_rows | map(attribute='id') | map('int') | list)
+
+- name: Use existing inbound id matching managed remark
+  ansible.builtin.set_fact:
+    three_x_ui_inbound_for_app: "{{ item.id }}"
+  loop: "{{ xui_inbound_rows }}"
+  when:
+    - three_x_ui_inbound_for_app is not defined
+    - (item.remark | default('') | trim) == (three_x_ui_managed_inbound_remark | trim)
+
+- name: Create managed inbound via API when not yet present
+  when: three_x_ui_inbound_for_app is not defined
+  block:
+    - name: Load rendered inbound JSON from disk
+      ansible.builtin.slurp:
+        src: /tmp/balalaika-managed-inbound.json
+      register: xui_managed_body_b64
+
+    - name: POST /inbounds/add
+      ansible.builtin.uri:
+        url: "{{ xui_api_root }}/inbounds/add"
+        method: POST
+        body_format: json
+        body: "{{ xui_managed_body_b64.content | b64decode | from_json }}"
+        headers:
+          Cookie: "{{ xui_cookie_header }}"
+          X-Requested-With: XMLHttpRequest
+          Accept: "application/json"
+        return_content: true
+        status_code: [200]
+        timeout: 120
+      register: xui_inbound_add
+
+    - name: Assert inbound create JSON success
+      ansible.builtin.assert:
+        that:
+          - xui_inbound_add.json.success | default(false) | bool
+          - xui_inbound_add.json.obj.id is defined
+
+    - name: Publish new inbound id for application template
+      ansible.builtin.set_fact:
+        three_x_ui_inbound_for_app: "{{ xui_inbound_add.json.obj.id }}"

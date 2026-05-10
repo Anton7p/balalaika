@@ -1,0 +1,30 @@
+---
+- name: List inbounds from 3x-ui API
+  ansible.builtin.uri:
+    url: "{{ xui_api_root }}/inbounds/list"
+    method: GET
+    headers:
+      Cookie: "{{ xui_cookie_header }}"
+      X-Requested-With: XMLHttpRequest
+      Accept: "application/json"
+    return_content: true
+    status_code: [200]
+    timeout: 60
+  register: xui_inbounds_list
+
+- name: Assert inbounds list JSON success
+  ansible.builtin.assert:
+    that:
+      - xui_inbounds_list.json.success | default(false) | bool
+
+- name: Cache inbound rows
+  ansible.builtin.set_fact:
+    xui_inbound_rows: "{{ xui_inbounds_list.json.obj | default([]) }}"
+
+- name: Fail when pinned THREE_X_UI_INBOUND_ID is missing on panel
+  ansible.builtin.fail:
+    msg: >-
+      pinned inbound id {{ three_x_ui_inbound_id }} not found on panel
+  when:
+    - three_x_ui_inbound_id | length > 0
+    - (three_x_ui_inbound_id | int) not in (xui_inbound_rows | map(attribute='id') | map('int') | list)

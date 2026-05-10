@@ -2,9 +2,13 @@
 
 Кратко, что это за проект и как безопасно заходить на серверы для диагностики. **Не коммитьте пароли, ключи и `inventory.ini` с секретами.**
 
+## Политика: генерация инвентаря и вспомогательная автоматизация (зафиксировано)
+
+Сборку **`inventory.ini` на runner из секретов GitHub Actions** делаем **только средствами Ansible** — плейбук **`ansible/playbooks/ci-write-inventory.yml`** и шаблон **`ansible/playbooks/templates/inventory.ci.ini.j2`** (переменные окружения `SERVER_IP`, при режиме cluster — `INFRASTRUCTURE_IP_LIST`, опционально `INVENTORY_MODE`, `REQUIRE_NONEMPTY_NODES`, `OUTPUT_PATH`). Отдельные shell/Python-скрипты в репозитории для этого не используются. Установка пакета **Ansible** в CI через `pip` остаётся допустимой как способ поставить сам Ansible на образ runner.
+
 ## Политика HTTP к панели 3x-ui (зафиксировано)
 
-**В этом репозитории CSRF не используется нигде и никогда** для автоматизации и описанных сценариев доступа к панели на loopback (`127.0.0.1:<webPort>`): ни заголовков вида **`X-CSRF-Token`**, ни отдельных запросов «за токеном перед записью». Допускается **только cookie-сессия** после успешного **`POST {prefix}/login`** и передача того же **`Cookie`** во всех следующих запросах (`ansible.builtin.uri` — см. `tasks/deploy/three-x-ui-inbound.yml`, `tasks/deploy/three-x-ui-telegram-http.yml`). Новые правки не должны вводить CSRF в эти цепочки.
+**В этом репозитории CSRF не используется нигде и никогда** для автоматизации и описанных сценариев доступа к панели на loopback (`127.0.0.1:<webPort>`): ни заголовков вида **`X-CSRF-Token`**, ни отдельных запросов «за токеном перед записью». Допускается **только cookie-сессия** после успешного **`POST {prefix}/login`** и передача того же **`Cookie`** во всех следующих запросах (`ansible.builtin.uri` — см. `tasks/deploy/three-x-ui-inbound/panel-login-session.yml` и др., `tasks/deploy/three-x-ui-telegram-http.yml`). Новые правки не должны вводить CSRF в эти цепочки.
 
 ## Продукт
 
@@ -39,11 +43,11 @@
 `THREE_X_UI_MANAGED_INBOUND_REMARK` — remark инбаунда для поиска/создания (по умолчанию `balalaika-bot`).  
 `TELEGRAM_BOT_ADMIN` и `TELEGRAM_ID_ADMIN` — если оба заданы, Ansible синхронизирует уведомления панели через HTTP **`POST …/panel/setting/update`** (cookie после `login`, см. `tasks/deploy/three-x-ui-telegram-http.yml`); если любой из них пустой — бот уведомлений в панели **выключается** и поля очищаются. Отдельно от токена **`TELEGRAM_BOT_TOKEN`** для приложения-бота.
 
-Инвентарь в CI **генерируется скриптом** из `SERVER_IP` и `INFRASTRUCTURE_IP_LIST` (см. шаги workflow). Локальный файл `ansible/inventory.ini` не должен попадать в git.
+Инвентарь в CI **генерируется** плейбуком **`ansible/playbooks/ci-write-inventory.yml`** из env (`SERVER_IP`; для cluster — ещё `INFRASTRUCTURE_IP_LIST`). В GitHub Actions шаг выполняется с **`working-directory: ansible`**: `ansible-playbook -i localhost, playbooks/ci-write-inventory.yml` (так подхватывается **`ansible/ansible.cfg`**). Режим по умолчанию **master**; для bootstrap и полного деплоя задаётся **`INVENTORY_MODE=cluster`**, для **Deploy Panel and Nodes** дополнительно **`REQUIRE_NONEMPTY_NODES=1`**. Локальный файл `ansible/inventory.ini` не должен попадать в git.
 
-Дефолты образа панели, web base path, порта VPN и Reality (dest/SNI и т.д.): `ansible/playbooks/vars/three-x-ui.defaults.yml`. Авто-inbound: `ansible/playbooks/tasks/deploy/three-x-ui-inbound.yml` (HTTP к панели на `127.0.0.1` через `ansible.builtin.uri`).
+Дефолты образа панели, web base path, порта VPN и Reality (dest/SNI и т.д.): `ansible/playbooks/vars/three-x-ui.defaults.yml`. Авто-inbound: каталог `ansible/playbooks/tasks/deploy/three-x-ui-inbound/` (`main.yml` подключает шаги Reality, HTTP-сессию и API inbound).
 
-**Почему в loopback-URL два раза подряд `panel`:** у 3x-ui задаётся `webBasePath` (дефолт `/panel/` — см. `x-ui setting -webBasePath`). REST API в коде панели смонтировано как `/panel/api` **внутри** этого префикса, поэтому полный путь на хосте выходит вида `http://127.0.0.1:<порт>/panel/panel/api/...`. Снаружи пользователь видит только `https://<DOMAIN>/panel/` — nginx проксирует на тот же префикс у процесса панели. Логин деплоя: POST формы на `{prefix}/login`, дальше запросы с cookie сессии (как в `three-x-ui-inbound.yml` и `three-x-ui-telegram-http.yml`).
+**Почему в loopback-URL два раза подряд `panel`:** у 3x-ui задаётся `webBasePath` (дефолт `/panel/` — см. `x-ui setting -webBasePath`). REST API в коде панели смонтировано как `/panel/api` **внутри** этого префикса, поэтому полный путь на хосте выходит вида `http://127.0.0.1:<порт>/panel/panel/api/...`. Снаружи пользователь видит только `https://<DOMAIN>/panel/` — nginx проксирует на тот же префикс у процесса панели. Логин деплоя: POST формы на `{prefix}/login`, дальше запросы с cookie сессии (как в `three-x-ui-inbound/panel-login-session.yml` и `three-x-ui-telegram-http.yml`).
 
 ## Что хранится «в базах»
 
@@ -121,7 +125,7 @@ curl -fsS http://127.0.0.1:3000/health || true
 ## Где смотреть код деплоя
 
 - Плейбук: `ansible/playbooks/deploy.yml`
-- Задачи master: `ansible/playbooks/tasks/deploy/master.yml` (после синка учётки панели подключается `tasks/deploy/three-x-ui-inbound.yml`, затем шаблонится `.env` приложения)
+- Задачи master: `ansible/playbooks/tasks/deploy/master.yml` (после синка учётки панели подключается `tasks/deploy/three-x-ui-inbound/main.yml`, затем шаблонится `.env` приложения)
 - Compose панели: `ansible/playbooks/templates/three-x-ui-master-compose.yml.j2`
 - Nginx: `ansible/playbooks/templates/nginx-subscription.conf.j2` (прокси `/panel/` → порт панели, `/sub/` → порт подписки **2096**)
 

@@ -64,13 +64,16 @@ jobs:
           push: true
           tags: ${{ steps.image_meta.outputs.app_image }}
 
-      - name: Install Ansible
+      - name: Install Ansible and sshpass
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install "ansible>=9.0.0"
+          sudo apt-get update
+          sudo apt-get install -y sshpass
 
       - name: Write Ansible inventory (master only)
-        run: python3 ansible/scripts/inventory_master_only.py
+        working-directory: ansible
+        run: ansible-playbook -i localhost, playbooks/ci-write-inventory.yml
 
       - name: Prepare SSH private key
         shell: bash

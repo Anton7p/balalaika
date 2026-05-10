@@ -1,0 +1,64 @@
+---
+# Loopback URLs vs nginx:
+# - webBasePath (x-ui setting + restart) is e.g. "/panel/"; UI login is POST {origin}{prefix}/login.
+# - REST API is mounted upstream as Group("/panel/api") under that prefix → path "{prefix}/panel/api/...".
+# - Nginx exposes https://<domain>/panel/; Ansible uses 127.0.0.1.
+
+- name: Normalize web base path prefix for loopback URLs
+  ansible.builtin.set_fact:
+    xui_origin: "http://127.0.0.1:{{ three_x_ui_panel_port | int }}"
+    xui_path_prefix: >-
+      {{
+        (
+          three_x_ui_web_base_path | default('/panel/') | trim
+          | regex_replace('^$', '/')
+          | regex_replace('^([^/])', '/\\1')
+        )
+        | regex_replace('/$', '')
+      }}
+
+- name: Compose 3x-ui login and API paths (loopback)
+  ansible.builtin.set_fact:
+    xui_login_post_url: "{{ xui_origin }}{{ xui_path_prefix }}/login"
+    xui_api_root: "{{ xui_origin }}{{ xui_path_prefix }}/panel/api"
+
+- name: Login to 3x-ui (session cookie; form POST)
+  ansible.builtin.uri:
+    url: "{{ xui_login_post_url }}"
+    method: POST
+    body_format: form-urlencoded
+    body:
+      username: "{{ vpn_admin_username }}"
+      password: "{{ vpn_admin_password }}"
+    headers:
+      X-Requested-With: XMLHttpRequest
+      Accept: "application/json"
+    follow_redirects: all
+    return_content: true
+    status_code: [200]
+    timeout: 60
+  register: xui_login_post
+  no_log: true
+
+- name: Assert 3x-ui login JSON success
+  ansible.builtin.assert:
+    that:
+      - xui_login_post.json.success | default(false) | bool
+
+# ansible.legacy.uri on some controllers rejects `cookies:`; use a Cookie header instead.
+- name: Build Cookie header from login session
+  ansible.builtin.set_fact:
+    xui_cookie_header: >-
+      {{
+        xui_login_post.cookies | default({}, true)
+        | dictsort
+        | map('join', '=')
+        | join('; ')
+      }}
+
+- name: Require Cookie header after login
+  ansible.builtin.assert:
+    that:
+      - xui_cookie_header | length > 0
+    fail_msg: >-
+      Login succeeded but uri returned no cookies dict; cannot call 3x-ui API (check ansible.builtin.uri / controller).

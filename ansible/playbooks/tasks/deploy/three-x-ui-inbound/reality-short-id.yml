@@ -1,0 +1,37 @@
+---
+# Stable Reality shortIds list (empty string + primary hex id from disk).
+
+- name: Stat persisted Reality short id
+  ansible.builtin.stat:
+    path: "{{ panel_dir }}/data/.balalaika-shortid.hex"
+  register: shortid_stat
+
+- name: Generate Reality short id (hex)
+  ansible.builtin.command: openssl rand -hex 4
+  register: shortid_gen
+  changed_when: true
+  when: not shortid_stat.stat.exists
+
+- name: Persist Reality short id
+  ansible.builtin.copy:
+    dest: "{{ panel_dir }}/data/.balalaika-shortid.hex"
+    content: "{{ shortid_gen.stdout | trim }}\n"
+    mode: "0600"
+  when: not shortid_stat.stat.exists
+
+- name: Read Reality short id
+  ansible.builtin.slurp:
+    src: "{{ panel_dir }}/data/.balalaika-shortid.hex"
+  register: shortid_slurp
+
+- name: Build Reality shortIds list (empty + primary id)
+  ansible.builtin.set_fact:
+    three_x_ui_reality_short_ids: ["", "{{ shortid_slurp.content | b64decode | trim }}"]
+
+- name: Reality keypair must be available
+  ansible.builtin.assert:
+    that:
+      - three_x_ui_reality_private_key is defined
+      - three_x_ui_reality_public_key is defined
+      - three_x_ui_reality_private_key | length > 0
+      - three_x_ui_reality_public_key | length > 0
