@@ -1,6 +1,7 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import dayjs from 'dayjs';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { firstValueFrom } from 'rxjs';
 import type {
@@ -9,6 +10,8 @@ import type {
 } from './vpn-admin-provider.interface';
 import type {
   VpnClientCreateParams,
+  VpnClientExtendParams,
+  VpnClientCreated,
   VpnProvider,
 } from './vpn-provider.interface';
 
@@ -136,7 +139,10 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
   }
 
   private panelTgId(params: VpnClientCreateParams): number {
-    const id = params.telegramUserId;
+    return this.telegramUserIdToPanel(params.telegramUserId);
+  }
+
+  private telegramUserIdToPanel(id: bigint | undefined): number {
     if (id === undefined) {
       return 0;
     }
@@ -146,13 +152,28 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     return Number(id);
   }
 
-  private expiryEpochMs(planMonths: number): number {
-    const now = Date.now();
+  /** Срок окончания в мс (поле expiryTime панели); та же логика месяцев, что и SubscriptionsService.computeExpiryEnd. */
+  private expiryEndEpochMs(planMonths: number, baseEpochMs: number): number {
+    let d = dayjs(baseEpochMs);
     if (planMonths === 0) {
-      return now + 3 * 24 * 60 * 60 * 1000;
+      return d.add(3, 'day').valueOf();
     }
-    const days = Math.round(planMonths * 30);
-    return now + days * 24 * 60 * 60 * 1000;
+    const whole = Math.floor(planMonths);
+    const remainder = planMonths - whole;
+    d = d.add(whole, 'month');
+    if (remainder > 0) {
+      d = d.add(Math.round(remainder * 30), 'day');
+    }
+    return d.valueOf();
+  }
+
+  private buildSubscriptionUri(panelSubId: string): string {
+    const domain = this.config.get<string>('DOMAIN_NAME') ?? '';
+    let uri = `${this.panelOrigin}/sub/${panelSubId}`;
+    if (domain.length > 0) {
+      uri = `https://${domain}/sub/${panelSubId}`;
+    }
+    return uri;
   }
 
   /** 3x-ui: admin login via form POST, дальше cookie-сессия для API. */
@@ -203,9 +224,130 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     }
   }
 
+  private async fetchInboundSettingsJson(): Promise<string> {
+    const inboundId = this.inboundId;
+    await this.ensurePanelSession();
+    const baseNoTrail = this.webBasePath.replace(/\/+$/, '');
+    const url = `${this.panelOrigin}${baseNoTrail}/panel/api/inbounds/get/${inboundId}`;
+    const res = await firstValueFrom(
+      this.http.get<unknown>(url, {
+        headers: {
+          Cookie: this.cookieHeader,
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        timeout: 25000,
+        validateStatus: (s) => s === 200,
+      }),
+    );
+    const data = res.data as {
+      obj?: { settings?: unknown };
+      settings?: unknown;
+    };
+    const inbound = data.obj ?? (res.data as { settings?: unknown });
+    const settings = inbound?.settings;
+    if (typeof settings !== 'string') {
+      throw new Error('3x-ui get inbound: settings missing or invalid');
+    }
+    return settings;
+  }
+
+  private extractClientSettingsObject(
+    settingsJson: string,
+    clientUuid: string,
+  ): Record<string, unknown> {
+    const settings = JSON.parse(settingsJson) as { clients?: unknown };
+    const clients = settings.clients;
+    if (!Array.isArray(clients)) {
+      throw new Error('inbound settings.clients missing');
+    }
+    for (const c of clients) {
+      if (
+        typeof c === 'object' &&
+        c !== null &&
+        (c as { id?: string }).id === clientUuid
+      ) {
+        return { ...(c as Record<string, unknown>) };
+      }
+    }
+    throw new Error('client uuid not found in inbound settings');
+  }
+
+  private async postInboundUpdateClient(
+    clientUuid: string,
+    body: Record<string, unknown>,
+  ): Promise<void> {
+    const baseNoTrail = this.webBasePath.replace(/\/+$/, '');
+    const url = `${this.panelOrigin}${baseNoTrail}/panel/api/inbounds/updateClient/${encodeURIComponent(clientUuid)}`;
+    const res = await firstValueFrom(
+      this.http.post<PanelMsg>(url, body, {
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: this.cookieHeader,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        timeout: 25000,
+        validateStatus: (s) => s === 200,
+      }),
+    );
+    if (res.data.success !== true) {
+      throw new Error('3x-ui updateClient rejected');
+    }
+  }
+
+  async extendClientExpiry(
+    params: VpnClientExtendParams,
+  ): Promise<{ connectionUri: string; panelExpiryEpochMs: number }> {
+    const inboundId = this.inboundId;
+    const settingsJson = await this.fetchInboundSettingsJson();
+    const clientObj = this.extractClientSettingsObject(
+      settingsJson,
+      params.clientUuid,
+    );
+    const prevExpiryRaw = clientObj.expiryTime;
+    const prevExpiryMs =
+      typeof prevExpiryRaw === 'number'
+        ? prevExpiryRaw
+        : typeof prevExpiryRaw === 'string'
+          ? Number.parseInt(prevExpiryRaw, 10)
+          : 0;
+    const baseEpochMs = Math.max(Date.now(), prevExpiryMs || 0);
+    const newExpiryMs = this.expiryEndEpochMs(params.planMonths, baseEpochMs);
+    const limitIp = Math.max(1, Math.floor(params.limitIp));
+    const merged: Record<string, unknown> = {
+      ...clientObj,
+      expiryTime: newExpiryMs,
+      limitIp,
+      tgId: this.telegramUserIdToPanel(params.telegramUserId),
+      enable: true,
+    };
+
+    const body = {
+      id: inboundId,
+      settings: JSON.stringify({ clients: [merged] }),
+    };
+
+    const run = async () => {
+      await this.ensurePanelSession();
+      await this.postInboundUpdateClient(params.clientUuid, body);
+    };
+
+    try {
+      await run();
+    } catch {
+      this.cookieHeader = '';
+      await run();
+    }
+
+    return {
+      connectionUri: this.buildSubscriptionUri(params.panelSubId),
+      panelExpiryEpochMs: newExpiryMs,
+    };
+  }
+
   async createClient(
     params: VpnClientCreateParams,
-  ): Promise<{ connectionUri: string }> {
+  ): Promise<VpnClientCreated> {
     const inboundId = this.inboundId;
     const clientUuid = randomUUID();
     const email = this.panelClientEmail(params);
@@ -215,6 +357,10 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
         ? `${params.label} | tg:${params.telegramUserId.toString()}`
         : params.label;
     const limitIp = Math.max(1, Math.floor(params.limitIp));
+    const panelExpiryEpochMs = this.expiryEndEpochMs(
+      params.planMonths,
+      Date.now(),
+    );
     const settingsObj = {
       clients: [
         {
@@ -223,7 +369,7 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
           flow: VLESS_FLOW_XTLS_RPRX_VISION,
           limitIp,
           totalGB: 0,
-          expiryTime: this.expiryEpochMs(params.planMonths),
+          expiryTime: panelExpiryEpochMs,
           enable: true,
           tgId: this.panelTgId(params),
           subId,
@@ -247,12 +393,12 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
       await run();
     }
 
-    const domain = this.config.get<string>('DOMAIN_NAME') ?? '';
-    let uri = `${this.panelOrigin}/sub/${subId}`;
-    if (domain.length > 0) {
-      uri = `https://${domain}/sub/${subId}`;
-    }
-    return { connectionUri: uri };
+    return {
+      connectionUri: this.buildSubscriptionUri(subId),
+      panelClientUuid: clientUuid,
+      panelSubId: subId,
+      panelExpiryEpochMs,
+    };
   }
 
   deleteClient(externalId: string): Promise<void> {

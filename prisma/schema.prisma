@@ -27,6 +27,10 @@ model Subscription {
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   planMonths       Float    @map("plan_months")
   vpnPayloadCipher String   @map("vpn_payload_cipher") @db.Text
+  /** UUID клиента в inbound Xray / 3x-ui для prolong через updateClient. */
+  panelClientUuid  String?  @map("panel_client_uuid")
+  /** subId подписки (не меняется при продлении). */
+  panelSubId       String?  @map("panel_sub_id")
   startsAt         DateTime @default(now()) @map("starts_at")
   expiresAt        DateTime @map("expires_at")
   // Уведомление "осталось не более 24 ч"

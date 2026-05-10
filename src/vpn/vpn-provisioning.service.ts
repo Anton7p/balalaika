@@ -14,15 +14,37 @@ export class VpnProvisioningService {
     planMonths: number,
     telegramUserId: bigint | undefined,
     limitIp: number,
-  ): Promise<string> {
+    existing?: Readonly<{ clientUuid: string; subId: string }>,
+  ): Promise<{
+    connectionUri: string;
+    panelClientUuid: string;
+    panelSubId: string;
+    panelExpiryEpochMs: number;
+  }> {
     const target = this.loadBalancer.selectTarget();
-    const { connectionUri } = await this.vpn.createClient({
-      label: `${target.nodeId}:${planMonths}`,
+    const label = `${target.nodeId}:${planMonths}`;
+    if (existing !== undefined) {
+      const { connectionUri, panelExpiryEpochMs } =
+        await this.vpn.extendClientExpiry({
+          clientUuid: existing.clientUuid,
+          panelSubId: existing.subId,
+          planMonths,
+          limitIp,
+          telegramUserId,
+        });
+      return {
+        connectionUri,
+        panelClientUuid: existing.clientUuid,
+        panelSubId: existing.subId,
+        panelExpiryEpochMs,
+      };
+    }
+    return await this.vpn.createClient({
+      label,
       planMonths,
       limitIp,
       telegramUserId,
     });
-    return connectionUri;
   }
 
   async probeVpnIntegration(): Promise<boolean> {

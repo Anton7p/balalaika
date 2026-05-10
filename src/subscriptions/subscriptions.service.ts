@@ -42,20 +42,6 @@ export class SubscriptionsService {
     return this.pricingCatalog.findPlanLabel(planMonths);
   }
 
-  private computeExpiryEnd(planMonths: number): Date {
-    let d = dayjs();
-    if (planMonths === 0) {
-      return d.add(3, 'day').toDate();
-    }
-    const whole = Math.floor(planMonths);
-    const remainder = planMonths - whole;
-    d = d.add(whole, 'month');
-    if (remainder > 0) {
-      d = d.add(Math.round(remainder * 30), 'day');
-    }
-    return d.toDate();
-  }
-
   async createSubscription(
     userId: string,
     planMonths: number,
@@ -69,39 +55,99 @@ export class SubscriptionsService {
     });
 
     const limitIp = this.pricingCatalog.findPlanDeviceLimit(planMonths);
-    const keyPlain = await this.vpnProvisioning.provisionConnection(
-      planMonths,
-      actorTelegramId,
-      limitIp,
-    );
-    const expiresAt = this.computeExpiryEnd(planMonths);
-    const vpnPayloadCipher = this.crypto.encryptUtf8(keyPlain);
-
-    const subscriptionId = await this.prisma.$transaction(
-      async (tx: Prisma.TransactionClient) => {
-        await tx.subscription.deleteMany({
-          where: { userId },
-        });
-        const row = await tx.subscription.create({
-          data: {
-            userId,
-            planMonths,
-            vpnPayloadCipher,
-            expiresAt,
-          },
-          select: { id: true },
-        });
-        return row.id;
+    const now = new Date();
+    const activeRow = await this.prisma.subscription.findFirst({
+      where: {
+        userId,
+        expiresAt: { gt: now },
+        panelClientUuid: { not: null },
+        panelSubId: { not: null },
       },
-    );
+      orderBy: { expiresAt: 'desc' },
+      select: {
+        id: true,
+        expiresAt: true,
+        panelClientUuid: true,
+        panelSubId: true,
+      },
+    });
+
+    const canExtend =
+      activeRow !== null &&
+      (activeRow.panelClientUuid?.length ?? 0) > 0 &&
+      (activeRow.panelSubId?.length ?? 0) > 0;
+
+    let subscriptionId: string;
+    let expiresAt: Date;
+    let keyPlain: string;
+    let extended = false;
+
+    if (canExtend) {
+      extended = true;
+      const provisioned = await this.vpnProvisioning.provisionConnection(
+        planMonths,
+        actorTelegramId,
+        limitIp,
+        {
+          clientUuid: activeRow.panelClientUuid as string,
+          subId: activeRow.panelSubId as string,
+        },
+      );
+      keyPlain = provisioned.connectionUri;
+      expiresAt = new Date(provisioned.panelExpiryEpochMs);
+      const vpnPayloadCipher = this.crypto.encryptUtf8(keyPlain);
+      await this.prisma.subscription.update({
+        where: { id: activeRow.id },
+        data: {
+          planMonths,
+          vpnPayloadCipher,
+          expiresAt,
+          panelClientUuid: provisioned.panelClientUuid,
+          panelSubId: provisioned.panelSubId,
+          expiryReminderSentAt: null,
+          subscriptionEndedNotifiedAt: null,
+        },
+      });
+      subscriptionId = activeRow.id;
+    } else {
+      const provisioned = await this.vpnProvisioning.provisionConnection(
+        planMonths,
+        actorTelegramId,
+        limitIp,
+      );
+      keyPlain = provisioned.connectionUri;
+      expiresAt = new Date(provisioned.panelExpiryEpochMs);
+      const vpnPayloadCipher = this.crypto.encryptUtf8(keyPlain);
+
+      subscriptionId = await this.prisma.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          await tx.subscription.deleteMany({
+            where: { userId },
+          });
+          const row = await tx.subscription.create({
+            data: {
+              userId,
+              planMonths,
+              vpnPayloadCipher,
+              expiresAt,
+              panelClientUuid: provisioned.panelClientUuid,
+              panelSubId: provisioned.panelSubId,
+            },
+            select: { id: true },
+          });
+          return row.id;
+        },
+      );
+    }
 
     await this.audit.logAccess({
       actorTelegramId,
       userId,
-      action: 'vpn_subscription_issued',
+      action: extended ? 'vpn_subscription_extended' : 'vpn_subscription_issued',
       metadata: {
         planMonths,
         subscriptionId,
+        extended,
       },
     });
 
