@@ -3,7 +3,7 @@
 # No shell/Python helpers — only Ansible + Jinja.
 #
 # Env:
-#   SERVER_IP — plain host/IP or JSON {"address","password"}
+#   SERVER_IP — JSON object {"address","password"} (both required, non-empty)
 #   INVENTORY_MODE — master | cluster (default master)
 #   INFRASTRUCTURE_IP_LIST — JSON array (cluster only)
 #   REQUIRE_NONEMPTY_NODES — 1 to require non-empty array (deploy-infra)
@@ -39,22 +39,35 @@
           - _ci_server_raw | length > 0
         fail_msg: SERVER_IP is empty
 
-    - name: Parse SERVER_IP as JSON object
-      when: _ci_server_raw.startswith('{')
+    - name: Require SERVER_IP JSON object
+      ansible.builtin.assert:
+        that:
+          - _ci_server_raw.startswith('{')
+        fail_msg: >-
+          SERVER_IP must be JSON with required keys address and password,
+          e.g. {"address":"203.0.113.10","password":"your-root-password"}
+
+    - name: Parse SERVER_IP JSON
       ansible.builtin.set_fact:
         _ci_json: "{{ _ci_server_raw | from_json }}"
 
-    - name: Extract address/password from JSON SERVER_IP
-      when: _ci_server_raw.startswith('{')
+    - name: Require SERVER_IP JSON mapping
+      ansible.builtin.assert:
+        that:
+          - _ci_json is mapping
+        fail_msg: SERVER_IP must be a JSON object (not an array or bare string)
+
+    - name: Extract address and password from SERVER_IP
       ansible.builtin.set_fact:
         _ci_host_candidate: "{{ _ci_json.address | default('', true) | trim }}"
         _ci_master_password: "{{ _ci_json.password | default('', true) | trim }}"
 
-    - name: Use plain SERVER_IP
-      when: not _ci_server_raw.startswith('{')
-      ansible.builtin.set_fact:
-        _ci_host_candidate: "{{ _ci_server_raw }}"
-        _ci_master_password: ''
+    - name: Require non-empty address and password in SERVER_IP
+      ansible.builtin.assert:
+        that:
+          - _ci_host_candidate | length > 0
+          - _ci_master_password | length > 0
+        fail_msg: SERVER_IP JSON must include non-empty address and password
 
     - name: Normalize host candidate (scheme, quotes)
       ansible.builtin.set_fact:

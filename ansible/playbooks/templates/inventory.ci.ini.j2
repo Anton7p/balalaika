@@ -1,5 +1,5 @@
 [master]
-master_host ansible_host={{ ci_master_host }} ansible_user=root{% if ci_master_password | default('') | length > 0 %} ansible_password='{{ ci_master_password }}'{% endif %}
+master_host ansible_host={{ ci_master_host }} ansible_user=root ansible_password='{{ ci_master_password }}'
 
 {% if ci_inventory_mode == 'cluster' %}
 [nodes]
