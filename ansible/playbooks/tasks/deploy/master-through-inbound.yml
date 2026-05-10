@@ -79,3 +79,6 @@
     that:
       - three_x_ui_inbound_for_app is defined
       - three_x_ui_inbound_for_app | string | length > 0
+
+- name: Russia Bypass (Direct) in Xray routing template (HTTP)
+  ansible.builtin.include_tasks: three-x-ui-xray-routing-http.yml

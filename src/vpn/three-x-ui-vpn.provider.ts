@@ -16,6 +16,9 @@ interface PanelMsg {
   readonly success?: boolean;
 }
 
+/** TCP REALITY + VLESS в 3x-ui ожидают этот flow на клиенте. */
+const VLESS_FLOW_XTLS_RPRX_VISION = 'xtls-rprx-vision' as const;
+
 /** Фраза + "-" + telegram id в поле email панели (без @домена). Латиница для совместимости с клиентами. */
 const SUB_EMAIL_PHRASES = [
   'vse-letaet-ura',
@@ -217,7 +220,7 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
         {
           id: clientUuid,
           email,
-          flow: '',
+          flow: VLESS_FLOW_XTLS_RPRX_VISION,
           limitIp,
           totalGB: 0,
           expiryTime: this.expiryEpochMs(params.planMonths),
