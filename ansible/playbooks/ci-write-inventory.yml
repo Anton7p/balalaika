@@ -59,8 +59,12 @@
     - name: Normalize host candidate (scheme, quotes)
       ansible.builtin.set_fact:
         _n: >-
-          {{ _ci_host_candidate | regex_replace('^(?i)https?://', '')
-          | regex_replace('[\"\']', '') | trim }}
+          {{
+            _ci_host_candidate
+            | regex_replace('(?i)^https?://', '')
+            | regex_replace('[\"\']', '')
+            | trim
+          }}
 
     - name: Strip leading/trailing slashes from host candidate
       ansible.builtin.set_fact:
