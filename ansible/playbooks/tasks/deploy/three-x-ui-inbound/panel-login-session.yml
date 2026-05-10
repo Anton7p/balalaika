@@ -2,18 +2,13 @@
 # Loopback URLs vs nginx:
 # - webBasePath (x-ui setting + restart) is e.g. "/panel/"; UI login is POST {origin}{prefix}/login.
 # - REST API is mounted upstream as Group("/panel/api") under that prefix → path "{prefix}/panel/api/...".
-# - Nginx exposes https://<domain>/panel/; Ansible uses 127.0.0.1.
+# - Nginx exposes https://<domain>/panel/; Ansible hits loopback with URLs whose host matches DOMAIN_NAME.
+
+- ansible.builtin.include_tasks: ../three-x-ui-loopback-hosts.yml
 
 - name: Normalize web base path prefix for loopback URLs
   ansible.builtin.set_fact:
-    xui_origin: "http://127.0.0.1:{{ three_x_ui_panel_port | int }}"
-    xui_panel_http_host: >-
-      {{
-        (domain_name | default('127.0.0.1', true) | trim
-          | regex_replace('(?i)^https?://', '')
-          | regex_replace('/.*$', '')
-          | regex_replace(':[0-9]{1,5}$', ''))
-      }}
+    xui_origin: "http://{{ xui_panel_http_host }}:{{ three_x_ui_panel_port | int }}"
     xui_path_prefix: >-
       {{
         (
@@ -38,7 +33,6 @@
       username: "{{ vpn_admin_username }}"
       password: "{{ vpn_admin_password }}"
     headers:
-      Host: "{{ xui_panel_http_host }}"
       X-Requested-With: XMLHttpRequest
       Accept: "application/json"
     follow_redirects: all

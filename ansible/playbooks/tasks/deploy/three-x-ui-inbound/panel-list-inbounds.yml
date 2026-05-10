@@ -4,7 +4,6 @@
     url: "{{ xui_api_root }}/inbounds/list"
     method: GET
     headers:
-      Host: "{{ xui_panel_http_host }}"
       Cookie: "{{ xui_cookie_header }}"
       X-Requested-With: XMLHttpRequest
       Accept: "application/json"
