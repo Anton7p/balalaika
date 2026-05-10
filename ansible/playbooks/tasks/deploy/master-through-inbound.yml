@@ -68,41 +68,8 @@
     timeout: 180
     delay: 3
 
-- name: Configure 3x-ui Telegram bot token and admin chat id
-  when:
-    - telegram_admin_chat_id | length > 0
-    - telegram_bot_admin | length > 0
-  ansible.builtin.command:
-    argv:
-      - docker
-      - exec
-      - "3x-ui"
-      - x-ui
-      - setting
-      - "-tgbottoken={{ telegram_bot_admin }}"
-      - "-tgbotchatid={{ telegram_admin_chat_id }}"
-      - "-enabletgbot"
-  register: xui_tg_bot
-  changed_when: xui_tg_bot.rc == 0
-  no_log: true
-
-- name: Restart 3x-ui to apply Telegram bot settings
-  when:
-    - telegram_admin_chat_id | length > 0
-    - telegram_bot_admin | length > 0
-  ansible.builtin.command:
-    cmd: docker compose restart 3x-ui
-    chdir: "{{ panel_dir }}"
-
-- name: Wait for 3x-ui web listener after Telegram bot restart
-  when:
-    - telegram_admin_chat_id | length > 0
-    - telegram_bot_admin | length > 0
-  ansible.builtin.wait_for:
-    host: 127.0.0.1
-    port: "{{ three_x_ui_panel_port | int }}"
-    timeout: 180
-    delay: 3
+- name: Sync Telegram panel notifier via HTTP setting/update (enable/disable from secrets)
+  ansible.builtin.include_tasks: three-x-ui-telegram-http.yml
 
 - name: Auto-create or resolve managed VPN inbound via 3x-ui API
   ansible.builtin.include_tasks: three-x-ui-inbound.yml

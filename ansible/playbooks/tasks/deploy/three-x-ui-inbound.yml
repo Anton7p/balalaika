@@ -209,7 +209,7 @@
     xui_login_post_url: "{{ xui_origin }}{{ xui_path_prefix }}/login"
     xui_api_root: "{{ xui_origin }}{{ xui_path_prefix }}/panel/api"
 
-- name: Login to 3x-ui (session cookie; form POST like curl -c, no CSRF preflight)
+- name: Login to 3x-ui (session cookie; form POST)
   ansible.builtin.uri:
     url: "{{ xui_login_post_url }}"
     method: POST

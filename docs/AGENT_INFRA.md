@@ -2,6 +2,10 @@
 
 Кратко, что это за проект и как безопасно заходить на серверы для диагностики. **Не коммитьте пароли, ключи и `inventory.ini` с секретами.**
 
+## Политика HTTP к панели 3x-ui (зафиксировано)
+
+**В этом репозитории CSRF не используется нигде и никогда** для автоматизации и описанных сценариев доступа к панели на loopback (`127.0.0.1:<webPort>`): ни заголовков вида **`X-CSRF-Token`**, ни отдельных запросов «за токеном перед записью». Допускается **только cookie-сессия** после успешного **`POST {prefix}/login`** и передача того же **`Cookie`** во всех следующих запросах (`ansible.builtin.uri` — см. `tasks/deploy/three-x-ui-inbound.yml`, `tasks/deploy/three-x-ui-telegram-http.yml`). Новые правки не должны вводить CSRF в эти цепочки.
+
 ## Продукт
 
 - Telegram-бот (NestJS) продаёт подписки и через интеграцию создаёт клиента во **встроенной панели [3x-ui](https://github.com/MHSanaei/3x-ui)** на master-хосте.
@@ -33,13 +37,13 @@
 `THREE_X_UI_VPN_PORT` — TCP-порт инбаунда Xray на master (по умолчанию **8443**, не занимать порт **443** у nginx).  
 `THREE_X_UI_REALITY_PRIVATE_KEY` и `THREE_X_UI_REALITY_PUBLIC_KEY` — пара Reality; если оба заданы, ключи не генерируются на сервере. Если оба пустые — генерируются один раз и сохраняются в `panel/data/.balalaika-reality.json`.  
 `THREE_X_UI_MANAGED_INBOUND_REMARK` — remark инбаунда для поиска/создания (по умолчанию `balalaika-bot`).  
-`TELEGRAM_BOT_ADMIN` и `TELEGRAM_ID_ADMIN` — если оба заданы, Ansible прописывает в 3x-ui Telegram-бота для админ-уведомлений (`x-ui setting -tgbottoken` / `-tgbotchatid`); отдельно от токена **`TELEGRAM_BOT_TOKEN`** для приложения-бота.
+`TELEGRAM_BOT_ADMIN` и `TELEGRAM_ID_ADMIN` — если оба заданы, Ansible синхронизирует уведомления панели через HTTP **`POST …/panel/setting/update`** (cookie после `login`, см. `tasks/deploy/three-x-ui-telegram-http.yml`); если любой из них пустой — бот уведомлений в панели **выключается** и поля очищаются. Отдельно от токена **`TELEGRAM_BOT_TOKEN`** для приложения-бота.
 
 Инвентарь в CI **генерируется скриптом** из `SERVER_IP` и `INFRASTRUCTURE_IP_LIST` (см. шаги workflow). Локальный файл `ansible/inventory.ini` не должен попадать в git.
 
 Дефолты образа панели, web base path, порта VPN и Reality (dest/SNI и т.д.): `ansible/playbooks/vars/three-x-ui.defaults.yml`. Авто-inbound: `ansible/playbooks/tasks/deploy/three-x-ui-inbound.yml` (HTTP к панели на `127.0.0.1` через `ansible.builtin.uri`).
 
-**Почему в loopback-URL два раза подряд `panel`:** у 3x-ui задаётся `webBasePath` (дефолт `/panel/` — см. `x-ui setting -webBasePath`). REST API в коде панели смонтировано как `/panel/api` **внутри** этого префикса, поэтому полный путь на хосте выходит вида `http://127.0.0.1:<порт>/panel/panel/api/...`. Снаружи пользователь видит только `https://<DOMAIN>/panel/` — nginx проксирует на тот же префикс у процесса панели. Логин деплоя: POST формы на `{prefix}/login`, дальше запросы API с session cookie (отдельный запрос CSRF для этого сценария не нужен).
+**Почему в loopback-URL два раза подряд `panel`:** у 3x-ui задаётся `webBasePath` (дефолт `/panel/` — см. `x-ui setting -webBasePath`). REST API в коде панели смонтировано как `/panel/api` **внутри** этого префикса, поэтому полный путь на хосте выходит вида `http://127.0.0.1:<порт>/panel/panel/api/...`. Снаружи пользователь видит только `https://<DOMAIN>/panel/` — nginx проксирует на тот же префикс у процесса панели. Логин деплоя: POST формы на `{prefix}/login`, дальше запросы с cookie сессии (как в `three-x-ui-inbound.yml` и `three-x-ui-telegram-http.yml`).
 
 ## Что хранится «в базах»
 
@@ -57,11 +61,45 @@
 
 Альтернатива для отладки (если открыт порт и файрвол): прямой доступ к порту панели на хосте (**2053** по умолчанию у 3x-ui), но для продакшена эталон — домен через nginx.
 
+## HTTP API 3x-ui: настройки панели и Telegram (ручной вызов)
+
+Под общим **`webBasePath`** (дефолт **`/panel/`**) у панели есть как минимум:
+
+| Назначение | Пример пути относительно `<ORIGIN><BASE>` |
+|------------|-------------------------------------------|
+| Логин (cookie-сессия) | **`login`** (POST, форма **`username`** / **`password`**) |
+| Снимок всех полей настроек | **`panel/setting/all`** (POST) |
+| Запись всех полей | **`panel/setting/update`** (POST, JSON тело как в ответе **`setting/all`**) |
+| Список inbound и др. | **`panel/api/...`** |
+
+**`<ORIGIN>`** — на сервере обычно `http://127.0.0.1:<webPort>`; **`<BASE>`** — **`webBasePath`** без завершающего слэша в URL (как в Ansible: `/panel` при **`/panel/`** в БД).
+
+Рабочий сценарий без секретов в примере: **`POST login`** → сохранить **`Set-Cookie`** → **`POST panel/setting/all`** с заголовком **`Cookie`** → поправить в JSON поля вроде **`tgBotEnable`**, **`tgBotToken`**, **`tgBotChatId`**, **`tgLang`** → **`POST panel/setting/update`** с тем же **`Cookie`** и полным телом (**CSRF не участвует**, см. политику выше). Так делает деплой в **`tasks/deploy/three-x-ui-telegram-http.yml`** (включает бота при непустых **`TELEGRAM_BOT_ADMIN`** и **`TELEGRAM_ID_ADMIN`**, иначе выключает и очищает поля).
+
+У конкретной сборки **3x-ui** могут отличаться заголовки или ответы ошибок — сверяйтесь с живой панелью.
+
+**Не коммитьте** в git токены, пароли и файлы cookie.
+
 ## Как зайти на сервер по SSH (проверка CLI)
 
-1. Использовать ключ из секрета **`SSH_PRIVATE_KEY`** (в CI он складывается во временный `id_rsa`).
+1. Использовать ключ из секрета **`SSH_PRIVATE_KEY`** (в CI он складывается во временный `ssh-ed25519 `).
 2. Либо локально: `ssh root@<IP_master>` с вашим ключом, если bootstrap уже положил `authorized_keys`.
 3. Пароль из JSON в `SERVER_IP` / элементах `INFRASTRUCTURE_IP_LIST` используется только если настроен парольный вход и вы собираетесь заходить через Ansible с `ansible_password` — **не храните пароли в открытом виде в репозитории.**
+
+### SSH из Cursor (агент / встроенный терминал)
+
+Команды ассистента выполняются **на вашем компьютере**, в окружении Cursor. Отдельного «облачного» доступа агента к серверу нет: сессия доходит до master только если **уже работает** ваш локальный SSH (ключ в `~/.ssh` или загружен в `ssh-agent`, запись в `authorized_keys` на сервере после bootstrap).
+
+- Адрес master берите из поля **`address`** в JSON секрета **`SERVER_IP`** (GitHub) или из локального `.env` в корне репозитория (файл в `.gitignore`) — сами значения **не коммитьте**.
+- Неинтерактивная проверка входа (без запроса пароля в терминале; сработает только при ключевой аутентификации):
+
+```bash
+ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 root@<IP_master> "echo connected && hostname && uptime"
+```
+
+`-o BatchMode=yes` отключает интерактивный ввод: при отсутствии подходящего ключа команда сразу завершится с ошибкой (пароль через SSH так не ввести). При первом подключении к новому хосту можно использовать `StrictHostKeyChecking=accept-new`, чтобы один раз принять fingerprint без ручного редактирования `known_hosts`.
+
+Дальше по тому же `ssh … root@<IP_master> "…"` гоняются любые однострочные проверки (те же `docker compose`, `curl` к `/health` на loopback — см. блок ниже).
 
 Проверки на master после деплоя:
 

@@ -13,6 +13,10 @@ export { MAIN_MENU_PHOTO_FILENAME, resolveMainMenuPhotoPath } from './media';
 export { MESSAGES } from './messages';
 export { NOTIFY_HTML } from './notify-html';
 export type { PlatformGuideKey, PlatformGuidesBundle } from './platform-guides';
+export {
+  LEGAL_SITE_PATHS,
+  PLATFORM_GUIDE_SITE_PATHS,
+} from './site-content-paths';
 export { UI_LABELS } from './ui-labels';
 export {
   durationKeyboard,

@@ -3,7 +3,7 @@ export interface LegalLink {
   readonly url: string;
 }
 
-/** Только подписи кнопок; URL задаются через `ContentLinksService` / env (white-label). */
+/** Только подписи кнопок; URL — `ContentLinksService` (`LEGAL_SITE_PATHS` + `DOMAIN_NAME` или env). */
 export const LEGAL_LINK_DISPLAY_NAMES = {
   FAQ: '🧠 FAQ и ответы',
   TERMS: '📄 Условия сервиса',

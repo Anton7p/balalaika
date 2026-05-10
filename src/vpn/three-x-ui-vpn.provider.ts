@@ -152,7 +152,7 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     return now + days * 24 * 60 * 60 * 1000;
   }
 
-  /** 3x-ui accepts admin login via form POST and session cookie; HTML meta csrf is not required (SPA builds vary). */
+  /** 3x-ui: admin login via form POST, дальше cookie-сессия для API. */
   private async ensurePanelSession(): Promise<void> {
     const body = new URLSearchParams({
       username: this.adminUsername,

@@ -3,17 +3,15 @@ import { ConfigService } from '@nestjs/config';
 import type { LegalLink } from './legal-links';
 import { LEGAL_LINK_DISPLAY_NAMES, type LegalLinkKey } from './legal-links';
 import type { PlatformGuidesBundle, PlatformGuideKey } from './platform-guides';
+import {
+  LEGAL_SITE_PATHS,
+  PLATFORM_GUIDE_SITE_PATHS,
+} from './site-content-paths';
 
 const LEGAL_URL_ENV: Record<LegalLinkKey, string> = {
   FAQ: 'LEGAL_FAQ_URL',
   TERMS: 'LEGAL_TERMS_URL',
   PRIVACY: 'LEGAL_PRIVACY_URL',
-};
-
-const LEGAL_DEFAULT_URL: Record<LegalLinkKey, string> = {
-  FAQ: 'https://example.com/faq',
-  TERMS: 'https://example.com/terms',
-  PRIVACY: 'https://example.com/privacy',
 };
 
 const PLATFORM_URL_ENV: Record<PlatformGuideKey, string> = {
@@ -23,17 +21,23 @@ const PLATFORM_URL_ENV: Record<PlatformGuideKey, string> = {
   MACOS: 'PLATFORM_GUIDE_MACOS_URL',
 };
 
-const PLATFORM_DEFAULT_URL: PlatformGuidesBundle = {
-  IOS: 'https://example.com/guide/ios',
-  ANDROID: 'https://example.com/guide/android',
-  WINDOWS: 'https://example.com/guide/windows',
-  MACOS: 'https://example.com/guide/macos',
-};
-
-/** Юридические и гайд-ссылки из конфигурации окружения (white-label). */
+/** Юридические и гайд-ссылки: env или пути из `site-content-paths.ts` на `DOMAIN_NAME`. */
 @Injectable()
 export class ContentLinksService {
   constructor(private readonly config: ConfigService) {}
+
+  /** Origin без завершающего слэша: `https://hostname` */
+  private siteOrigin(): string {
+    const raw = this.config.get<string>('DOMAIN_NAME')?.trim() ?? '';
+    const host = raw.replace(/^https?:\/\//i, '').split('/')[0]?.trim() ?? '';
+    return host.length > 0 ? `https://${host}` : '';
+  }
+
+  private absoluteFromSitePath(path: string): string {
+    const origin = this.siteOrigin();
+    const p = path.startsWith('/') ? path : `/${path}`;
+    return origin.length > 0 ? `${origin}${p}` : p;
+  }
 
   getLegalLinks(): Record<LegalLinkKey, LegalLink> {
     const keys: LegalLinkKey[] = ['FAQ', 'TERMS', 'PRIVACY'];
@@ -41,7 +45,9 @@ export class ContentLinksService {
     for (const key of keys) {
       const raw = this.config.get<string>(LEGAL_URL_ENV[key]);
       const url =
-        raw !== undefined && raw.length > 0 ? raw : LEGAL_DEFAULT_URL[key];
+        raw !== undefined && raw.length > 0
+          ? raw
+          : this.absoluteFromSitePath(LEGAL_SITE_PATHS[key]);
       result[key] = {
         name: LEGAL_LINK_DISPLAY_NAMES[key],
         url,
@@ -52,12 +58,13 @@ export class ContentLinksService {
 
   getPlatformGuides(): PlatformGuidesBundle {
     const keys: PlatformGuideKey[] = ['IOS', 'ANDROID', 'WINDOWS', 'MACOS'];
-    const out: PlatformGuidesBundle = { ...PLATFORM_DEFAULT_URL };
+    const out = {} as PlatformGuidesBundle;
     for (const key of keys) {
       const raw = this.config.get<string>(PLATFORM_URL_ENV[key]);
-      if (raw !== undefined && raw.length > 0) {
-        out[key] = raw;
-      }
+      out[key] =
+        raw !== undefined && raw.length > 0
+          ? raw
+          : this.absoluteFromSitePath(PLATFORM_GUIDE_SITE_PATHS[key]);
     }
     return out;
   }
