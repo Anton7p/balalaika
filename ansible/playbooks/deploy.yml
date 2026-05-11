@@ -1,3 +1,0 @@
----
-# Только стек бота на master. Панель 3x-ui и nginx под панель — вне Ansible этого репозитория.
-- import_playbook: deploy-app.yml
