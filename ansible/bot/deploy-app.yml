@@ -7,19 +7,10 @@
   vars:
     deploy_root: "{{ lookup('env', 'DEPLOY_ROOT') | default('/opt/infrastructure', true) }}"
     app_dir: "{{ deploy_root }}/app"
-    # Репозиторий на контроллере: DEPLOY_SOURCE_DIR, иначе GITHUB_WORKSPACE (CI), иначе корень репо рядом с ansible/.
-    deploy_source_dir: >-
-      {{
-        (lookup('env', 'DEPLOY_SOURCE_DIR', default='') | trim | length > 0)
-        | ternary(lookup('env', 'DEPLOY_SOURCE_DIR') | trim,
-          (lookup('env', 'GITHUB_WORKSPACE', default='') | trim | length > 0)
-          | ternary(lookup('env', 'GITHUB_WORKSPACE') | trim,
-                    playbook_dir | dirname | dirname))
-      }}
     domain_name: "{{ lookup('env', 'DOMAIN_NAME') }}"
     vpn_admin_username: "{{ lookup('env', 'VPN_ADMIN_USERNAME') }}"
     vpn_admin_password: "{{ lookup('env', 'VPN_ADMIN_PASSWORD') }}"
-    app_image: "{{ lookup('env', 'APP_IMAGE') | default('balalaika/bot:local', true) | trim }}"
+    app_image: "{{ lookup('env', 'APP_IMAGE') }}"
     telegram_bot_token: "{{ lookup('env', 'TELEGRAM_BOT_TOKEN') }}"
     telegram_admin_id: "{{ lookup('env', 'TELEGRAM_ADMIN_ID') | default('', true) }}"
     encryption_key: "{{ lookup('env', 'ENCRYPTION_KEY') }}"
@@ -31,12 +22,12 @@
           - domain_name | length > 0
           - vpn_admin_username | length > 0
           - vpn_admin_password | length > 0
+          - app_image | length > 0
           - telegram_bot_token | length > 0
           - encryption_key | length > 0
-          - deploy_source_dir | length > 0
         fail_msg: >-
-          Нужны DOMAIN_NAME, VPN_ADMIN_*, TELEGRAM_BOT_TOKEN, ENCRYPTION_KEY и каталог исходников
-          (GITHUB_WORKSPACE в CI или запуск ansible из корня репозитория).
+          Нужны DOMAIN_NAME, VPN_ADMIN_*, APP_IMAGE, TELEGRAM_BOT_TOKEN, ENCRYPTION_KEY;
+          для pull образа на сервере — GHCR_USERNAME и GHCR_TOKEN.
   tasks:
     - name: Include bot-only deploy tasks
       ansible.builtin.include_tasks: tasks/deploy/app-only.yml

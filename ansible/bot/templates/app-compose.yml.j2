@@ -25,9 +25,6 @@ services:
       sh -c 'if [ -n "$REDIS_PASSWORD" ]; then exec redis-server --requirepass "$REDIS_PASSWORD"; else exec redis-server; fi'
 
   app:
-    build:
-      context: ./src
-      dockerfile: Dockerfile
     image: {{ app_image }}
     restart: always
     env_file:
