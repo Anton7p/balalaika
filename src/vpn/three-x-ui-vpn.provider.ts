@@ -22,6 +22,11 @@ interface PanelMsg {
 /** TCP REALITY + VLESS в 3x-ui ожидают этот flow на клиенте. */
 const VLESS_FLOW_XTLS_RPRX_VISION = 'xtls-rprx-vision' as const;
 
+/** Базовый путь веб-UI 3x-ui (типичный webBasePath). */
+const DEFAULT_XUI_WEB_BASE_PATH = '/panel/';
+/** Id inbound в 3x-ui для выдачи клиентов; при другом id измените здесь. */
+const DEFAULT_XUI_INBOUND_ID = 1;
+
 /** Фраза + "-" + telegram id в поле email панели (без @домена). Латиница для совместимости с клиентами. */
 const SUB_EMAIL_PHRASES = [
   'vse-letaet-ura',
@@ -59,22 +64,13 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
   }
 
   private get webBasePath(): string {
-    const raw =
-      this.config.get<string>('THREE_X_UI_WEB_BASE_PATH')?.trim() || '/panel/';
+    const raw = DEFAULT_XUI_WEB_BASE_PATH;
     const withSlash = raw.startsWith('/') ? raw : `/${raw}`;
     return withSlash.endsWith('/') ? withSlash : `${withSlash}/`;
   }
 
   private get inboundId(): number {
-    const raw = this.config.get<string>('THREE_X_UI_INBOUND_ID');
-    if (raw === undefined || raw.trim().length === 0) {
-      throw new Error('THREE_X_UI_INBOUND_ID is required for 3x-ui adapter');
-    }
-    const n = Number.parseInt(raw.trim(), 10);
-    if (!Number.isFinite(n) || n <= 0) {
-      throw new Error('THREE_X_UI_INBOUND_ID must be a positive integer');
-    }
-    return n;
+    return DEFAULT_XUI_INBOUND_ID;
   }
 
   private get adminUsername(): string {
