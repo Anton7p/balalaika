@@ -67,7 +67,7 @@ curl -sS -b /tmp/xui-cookies.txt -c /tmp/xui-cookies.txt \
 
 Через TLS и домен путь тот же префикс, что в браузере (**`/panel/`** → логин **`…/panel/login`**, настройки **`…/panel/panel/setting/…`** — см. ваш **`webBasePath`** и версию панели).
 
-Инвариант: **`/panel/csrf-token`** и **`/panel/panel/csrf-token`** не используем; только **cookies** после **`login`**. Референс задач Ansible: **`ansible/playbooks/tasks/deploy/three-x-ui-inbound/panel-login-session.yml`**, **`ansible/playbooks/tasks/deploy/three-x-ui-telegram-http.yml`**.
+Инвариант: **`/panel/csrf-token`** и **`/panel/panel/csrf-token`** не используем; только **cookies** после **`login`**. В этом репозитории **Ansible больше не деплоит панель** — автоматизацию панели делайте вручную (curl/скрипты) по тем же правилам.
 
 ## Метод «update» настроек: `POST …/panel/panel/setting/update`
 
@@ -97,4 +97,4 @@ curl -sS -b /tmp/xui-cookies.txt -c /tmp/xui-cookies.txt \
 
 ### Как «обновить саму панель» (версию)
 
-**`setting/update`** версию образа **не меняет**. Для обновления контейнера **3x-ui** в этом проекте принято на master: **`docker compose pull`** и перезапуск стека в **`/opt/infrastructure/panel`** (как в Ansible **`master-through-inbound.yml`**) или прогон соответствующего workflow в GitHub Actions. Внутри контейнера команды вида **`x-ui update`** для Docker-образа часто **не применимы** к вашей схеме установки.
+**`setting/update`** версию образа **не меняет**. Обновление образа **3x-ui** на master — вручную: **`docker compose pull`** и перезапуск стека в **`/opt/infrastructure/panel`** (если каталог у вас такой же). Внутри контейнера команды вида **`x-ui update`** для Docker-образа часто **не применимы** к вашей схеме установки.

@@ -8,7 +8,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SERVER_IP: ${{ secrets.SERVER_IP }}
-      INFRASTRUCTURE_IP_LIST: ${{ secrets.INFRASTRUCTURE_IP_LIST }}
       DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
       SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -27,7 +26,7 @@ jobs:
       - name: Validate required secrets
         shell: bash
         run: |
-          for var in SERVER_IP INFRASTRUCTURE_IP_LIST DOMAIN_NAME SSH_PUBLIC_KEY SSH_PRIVATE_KEY; do
+          for var in SERVER_IP DOMAIN_NAME SSH_PUBLIC_KEY SSH_PRIVATE_KEY; do
             if [ -z "${!var}" ]; then
               echo "::error::Missing required secret: $var"
               exit 1
@@ -36,8 +35,6 @@ jobs:
 
       - name: Build Ansible inventory from secrets
         working-directory: ansible
-        env:
-          INVENTORY_MODE: cluster
         run: ansible-playbook -i localhost, playbooks/ci-write-inventory.yml
 
       - name: Prepare runtime SSH key files for Ansible
@@ -67,7 +64,7 @@ jobs:
         env:
           ANSIBLE_HOST_KEY_CHECKING: "False"
         run: |
-          ansible all -i inventory.ini -m ping --private-key ../.tmp-keys/id_rsa
+          ansible master -i inventory.ini -m ping --private-key ../.tmp-keys/id_rsa
 
       - name: Cleanup temporary key material
         if: always()

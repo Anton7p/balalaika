@@ -1,26 +1,15 @@
 ---
-- name: Seed inbound id from THREE_X_UI_INBOUND_ID when set in CI
+# Только значение из окружения; API панели Ansible не вызывает.
+
+- name: Зафиксировать inbound id для .env бота
   ansible.builtin.set_fact:
     three_x_ui_inbound_for_app: "{{ three_x_ui_inbound_id }}"
-  when: three_x_ui_inbound_id | length > 0
 
-- name: Resolve inbound id from panel API when THREE_X_UI_INBOUND_ID unset
-  when: three_x_ui_inbound_for_app is not defined
-  block:
-    - ansible.builtin.include_tasks: three-x-ui-inbound/panel-login-session.yml
-    - ansible.builtin.include_tasks: three-x-ui-inbound/panel-list-inbounds.yml
-    - name: Pick existing inbound id matching managed remark
-      ansible.builtin.set_fact:
-        three_x_ui_inbound_for_app: "{{ item.id }}"
-      loop: "{{ xui_inbound_rows }}"
-      when: (item.remark | default('') | trim) == (three_x_ui_managed_inbound_remark | trim)
-
-- name: Require numeric inbound id for bot .env
+- name: Проверка формата THREE_X_UI_INBOUND_ID
   ansible.builtin.assert:
     that:
       - three_x_ui_inbound_for_app is defined
       - three_x_ui_inbound_for_app | string | length > 0
       - three_x_ui_inbound_for_app | string is match('^[0-9]+$')
     fail_msg: >-
-      Set GitHub secret THREE_X_UI_INBOUND_ID or deploy the panel first so an inbound with remark
-      "{{ three_x_ui_managed_inbound_remark }}" exists (same rule as panel playbook).
+      Задайте THREE_X_UI_INBOUND_ID (положительное целое число — id inbound на панели 3x-ui).

@@ -1,6 +1,6 @@
 ---
-- name: Bootstrap all infrastructure hosts
-  hosts: all
+- name: Bootstrap master host (base system)
+  hosts: master
   become: true
   gather_facts: false
   vars:
@@ -35,34 +35,21 @@
         bootstrap_already_done: "{{ bootstrap_marker.stat.exists | default(false) }}"
 
   tasks:
-    - name: TCP BBR Congestion Control - Common for both master and node
+    - name: TCP BBR Congestion Control
       ansible.builtin.include_tasks: tasks/common/10-tcp-bbr.yml
       when: not bootstrap_already_done
 
-    - name: Docker Setup - Common for both master and node
+    - name: Docker Setup
       ansible.builtin.include_tasks: tasks/common/20-docker.yml
       when: not bootstrap_already_done
 
-    - name: SSH Key Setup - Common for both master and node
+    - name: SSH Key Setup
       ansible.builtin.include_tasks: tasks/common/30-ssh-key.yml
       when: not bootstrap_already_done
 
-    - name: SSH Hardening - Common for both master and node
+    - name: SSH Hardening
       ansible.builtin.include_tasks: tasks/common/40-ssh-hardening.yml
       when: not bootstrap_already_done
-
-    - name: Create bootstrap completion marker
-      ansible.builtin.copy:
-        dest: "{{ bootstrap_marker_path }}"
-        owner: root
-        group: root
-        mode: "0644"
-        content: |
-          bootstrap_completed=true
-          completed_at={{ ansible_date_time.iso8601 }}
-      when:
-        - not bootstrap_already_done
-        - inventory_hostname not in groups['master']
 
   handlers:
     - name: Restart sshd

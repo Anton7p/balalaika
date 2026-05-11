@@ -1,22 +1,17 @@
 ---
-# Rolling deploy of the Telegram bot stack only (reuse existing panel / nginx / certs).
+# Деплой Telegram-бота (Docker Compose в /opt/infrastructure/app). Панель не трогаем.
 - name: Deploy bot application on master
   hosts: master
   become: true
   gather_facts: true
-  vars_files:
-    - vars/three-x-ui.defaults.yml
   vars:
     deploy_root: "{{ lookup('env', 'DEPLOY_ROOT') | default('/opt/infrastructure', true) }}"
     app_dir: "{{ deploy_root }}/app"
     domain_name: "{{ lookup('env', 'DOMAIN_NAME') }}"
     vpn_admin_username: "{{ lookup('env', 'VPN_ADMIN_USERNAME') }}"
     vpn_admin_password: "{{ lookup('env', 'VPN_ADMIN_PASSWORD') }}"
-    three_x_ui_web_base_path: "{{ lookup('env', 'THREE_X_UI_WEB_BASE_PATH') | default(three_x_ui_web_base_path_default, true) }}"
-    three_x_ui_panel_port: "{{ lookup('env', 'THREE_X_UI_PANEL_PORT') | default('2053', true) }}"
-    three_x_ui_managed_inbound_remark: "{{ lookup('env', 'THREE_X_UI_MANAGED_INBOUND_REMARK') | default('balalaika-bot', true) }}"
+    three_x_ui_web_base_path: "{{ lookup('env', 'THREE_X_UI_WEB_BASE_PATH') | default('/panel/', true) }}"
     three_x_ui_inbound_id: "{{ lookup('env', 'THREE_X_UI_INBOUND_ID') | default('', true) | trim }}"
-    three_x_ui_loopback_http_host: "{{ lookup('env', 'THREE_X_UI_LOOPBACK_HTTP_HOST') | default('', true) | trim }}"
     app_image: "{{ lookup('env', 'APP_IMAGE') }}"
     telegram_bot_token: "{{ lookup('env', 'TELEGRAM_BOT_TOKEN') }}"
     telegram_admin_id: "{{ lookup('env', 'TELEGRAM_ADMIN_ID') | default('', true) }}"
@@ -29,13 +24,14 @@
           - domain_name | length > 0
           - vpn_admin_username | length > 0
           - vpn_admin_password | length > 0
+          - three_x_ui_inbound_id | length > 0
+          - three_x_ui_inbound_id is match('^[0-9]+$')
           - app_image | length > 0
           - telegram_bot_token | length > 0
           - encryption_key | length > 0
         fail_msg: >-
-          For deploy-app you need DOMAIN_NAME, VPN_ADMIN_*, APP_IMAGE, TELEGRAM_BOT_TOKEN,
-          and ENCRYPTION_KEY. Inbound id comes from THREE_X_UI_INBOUND_ID or from the panel (remark
-          "{{ three_x_ui_managed_inbound_remark }}").
+          Нужны DOMAIN_NAME, VPN_ADMIN_*, THREE_X_UI_INBOUND_ID (число), APP_IMAGE,
+          TELEGRAM_BOT_TOKEN, ENCRYPTION_KEY; для pull образа на сервере — GHCR_USERNAME и GHCR_TOKEN.
   tasks:
     - name: Resolve THREE_X_UI_INBOUND_ID for app template
       ansible.builtin.include_tasks: tasks/deploy/app-resolve-inbound-id.yml
