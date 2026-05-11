@@ -1,5 +1,11 @@
 ---
-# Bot stack only: templates + app pull + compose up + local health (no panel/nginx/certbot).
+# Bot stack: rsync исходников → docker compose build → up (без GHCR pull).
+
+- name: Ensure rsync is installed on master
+  ansible.builtin.apt:
+    name: rsync
+    state: present
+    update_cache: true
 
 - name: Ensure app deploy directories exist
   ansible.builtin.file:
@@ -9,6 +15,24 @@
   loop:
     - "{{ deploy_root }}"
     - "{{ app_dir }}"
+    - "{{ app_dir }}/src"
+
+- name: Sync application source for Docker build
+  ansible.posix.synchronize:
+    src: "{{ deploy_source_dir }}/"
+    dest: "{{ app_dir }}/src/"
+    delete: true
+    recursive: true
+    rsync_opts:
+      - "--exclude=node_modules"
+      - "--exclude=dist"
+      - "--exclude=.git"
+      - "--exclude=.env"
+      - "--exclude=.env.*"
+      - "--exclude=ansible/inventory.ini"
+      - "--exclude=ansible/.tmp-keys"
+      - "--exclude=.github"
+      - "--exclude=ansible"
 
 - name: Deploy app stack compose file
   ansible.builtin.template:
@@ -22,23 +46,9 @@
     dest: "{{ app_dir }}/.env"
     mode: "0600"
 
-- name: Log in to ghcr.io for private image pull
-  ansible.builtin.shell: |
-    set -euo pipefail
-    printf '%s' "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
-  args:
-    executable: /bin/bash
-  environment:
-    GHCR_USERNAME: "{{ lookup('env', 'GHCR_USERNAME', default='') | trim }}"
-    GHCR_TOKEN: "{{ lookup('env', 'GHCR_TOKEN', default='') | trim }}"
-  when:
-    - (lookup('env', 'GHCR_USERNAME', default='') | trim | length) > 0
-    - (lookup('env', 'GHCR_TOKEN', default='') | trim | length) > 0
-  no_log: true
-
-- name: Pull latest bot app image
+- name: Build bot app image on master
   ansible.builtin.command:
-    cmd: docker compose pull app
+    cmd: docker compose build app
     chdir: "{{ app_dir }}"
 
 - name: Start/update bot application stack
