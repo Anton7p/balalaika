@@ -35,7 +35,7 @@ jobs:
 
       - name: Build Ansible inventory from secrets
         working-directory: ansible
-        run: ansible-playbook -i localhost, playbooks/ci-write-inventory.yml
+        run: ansible-playbook -i localhost, ci/ci-write-inventory.yml
 
       - name: Prepare runtime SSH key files for Ansible
         shell: bash
@@ -57,7 +57,7 @@ jobs:
           SSH_PUBLIC_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
           ANSIBLE_HOST_KEY_CHECKING: "False"
         run: |
-          ansible-playbook playbooks/bootstrap.yml --private-key ../.tmp-keys/id_rsa
+          ansible-playbook bootstrap/bootstrap.yml --private-key ../.tmp-keys/id_rsa
 
       - name: Verify key-based SSH access after bootstrap
         working-directory: ansible

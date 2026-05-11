@@ -4,7 +4,7 @@
 #
 # Env:
 #   SERVER_IP — JSON object {"address","password"} (both required, non-empty)
-#   OUTPUT_PATH — optional absolute path; default ansible/inventory.ini next to playbooks/
+#   OUTPUT_PATH — optional absolute path; default ../inventory.ini (ansible root)
 
 - name: Materialize inventory.ini for CI
   hosts: localhost

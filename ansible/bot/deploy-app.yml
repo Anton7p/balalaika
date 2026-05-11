@@ -33,8 +33,5 @@
           Нужны DOMAIN_NAME, VPN_ADMIN_*, THREE_X_UI_INBOUND_ID (число), APP_IMAGE,
           TELEGRAM_BOT_TOKEN, ENCRYPTION_KEY; для pull образа на сервере — GHCR_USERNAME и GHCR_TOKEN.
   tasks:
-    - name: Resolve THREE_X_UI_INBOUND_ID for app template
-      ansible.builtin.include_tasks: tasks/deploy/app-resolve-inbound-id.yml
-
     - name: Include bot-only deploy tasks
       ansible.builtin.include_tasks: tasks/deploy/app-only.yml
