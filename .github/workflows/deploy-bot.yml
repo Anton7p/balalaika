@@ -16,8 +16,6 @@ jobs:
       DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
       VPN_ADMIN_USERNAME: ${{ secrets.VPN_ADMIN_USERNAME }}
       VPN_ADMIN_PASSWORD: ${{ secrets.VPN_ADMIN_PASSWORD }}
-      THREE_X_UI_INBOUND_ID: ${{ secrets.THREE_X_UI_INBOUND_ID }}
-      THREE_X_UI_WEB_BASE_PATH: ${{ secrets.THREE_X_UI_WEB_BASE_PATH }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
       ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
@@ -86,8 +84,6 @@ jobs:
           DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
           VPN_ADMIN_USERNAME: ${{ secrets.VPN_ADMIN_USERNAME }}
           VPN_ADMIN_PASSWORD: ${{ secrets.VPN_ADMIN_PASSWORD }}
-          THREE_X_UI_INBOUND_ID: ${{ secrets.THREE_X_UI_INBOUND_ID }}
-          THREE_X_UI_WEB_BASE_PATH: ${{ secrets.THREE_X_UI_WEB_BASE_PATH }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
@@ -105,8 +101,6 @@ jobs:
           DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
           VPN_ADMIN_USERNAME: ${{ secrets.VPN_ADMIN_USERNAME }}
           VPN_ADMIN_PASSWORD: ${{ secrets.VPN_ADMIN_PASSWORD }}
-          THREE_X_UI_INBOUND_ID: ${{ secrets.THREE_X_UI_INBOUND_ID }}
-          THREE_X_UI_WEB_BASE_PATH: ${{ secrets.THREE_X_UI_WEB_BASE_PATH }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
