@@ -27,7 +27,7 @@
           - encryption_key | length > 0
         fail_msg: >-
           Нужны DOMAIN_NAME, VPN_ADMIN_*, APP_IMAGE, TELEGRAM_BOT_TOKEN, ENCRYPTION_KEY;
-          для pull образа на сервере — GHCR_USERNAME и GHCR_TOKEN.
+          для pull с GHCR на сервере — в окружении control node GITHUB_ACTOR и GITHUB_TOKEN.
   tasks:
     - name: Include bot-only deploy tasks
       ansible.builtin.include_tasks: tasks/deploy/app-only.yml

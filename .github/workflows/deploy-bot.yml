@@ -1,4 +1,4 @@
-name: Deploy Bot Only
+name: Deploy Bot
 
 on:
   workflow_dispatch:
@@ -19,8 +19,8 @@ jobs:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
       ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
-      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-      GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+      GITHUB_ACTOR: ${{ github.actor }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
     steps:
       - name: Checkout repository
@@ -87,8 +87,6 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           APP_IMAGE: ${{ steps.image_meta.outputs.app_image }}
           APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
         run: |
@@ -104,8 +102,6 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           APP_IMAGE: ${{ steps.image_meta.outputs.app_image }}
           APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
         run: |
