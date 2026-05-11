@@ -28,17 +28,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate required secrets
-        shell: bash
-        run: |
-          for var in SERVER_IP SSH_PRIVATE_KEY DOMAIN_NAME VPN_ADMIN_USERNAME VPN_ADMIN_PASSWORD \
-            THREE_X_UI_INBOUND_ID TELEGRAM_BOT_TOKEN ENCRYPTION_KEY GHCR_USERNAME GHCR_TOKEN; do
-            if [ -z "${!var}" ]; then
-              echo "::error::Missing required secret: $var"
-              exit 1
-            fi
-          done
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
