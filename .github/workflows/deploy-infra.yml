@@ -1,4 +1,4 @@
-name: Deploy Panel and Nodes
+name: Deploy Master, Panel and Bot
 
 on:
   workflow_dispatch:

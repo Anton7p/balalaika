@@ -1,7 +1,7 @@
 ---
-# GHCR tag — semver панели, не строка Xray в UI. v2.9.3 включает Xray v26.4.25 (upstream release notes).
+# GHCR tag for 3x-ui image.
 # Перекрыть можно секретом THREE_X_UI_IMAGE в CI.
-three_x_ui_image_default: "ghcr.io/mhsanaei/3x-ui:v2.9.3"
+three_x_ui_image_default: "ghcr.io/mhsanaei/3x-ui:3.0.0"
 
 three_x_ui_web_base_path_default: "/panel/"
 
