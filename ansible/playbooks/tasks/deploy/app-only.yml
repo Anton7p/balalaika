@@ -1,5 +1,5 @@
 ---
-# Bot stack only: templates + GHCR pull + compose up + local health (no panel/nginx/certbot).
+# Bot stack only: templates + app pull + compose up + local health (no panel/nginx/certbot).
 
 - name: Ensure app deploy directories exist
   ansible.builtin.file:
@@ -21,11 +21,6 @@
     src: templates/app.env.j2
     dest: "{{ app_dir }}/.env"
     mode: "0600"
-
-- name: Log in to GHCR on master host
-  ansible.builtin.shell: |
-    set -e
-    echo "{{ ghcr_token }}" | docker login ghcr.io -u "{{ ghcr_username }}" --password-stdin
 
 - name: Pull latest bot app image
   ansible.builtin.command:

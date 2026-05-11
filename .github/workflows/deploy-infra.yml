@@ -26,8 +26,6 @@ jobs:
       TELEGRAM_BOT_ADMIN: ${{ secrets.TELEGRAM_BOT_ADMIN }}
       TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
       ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
-      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-      GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -35,7 +33,7 @@ jobs:
       - name: Validate required secrets
         shell: bash
         run: |
-          for var in SERVER_IP INFRASTRUCTURE_IP_LIST DOMAIN_NAME SSH_PRIVATE_KEY VPN_ADMIN_USERNAME VPN_ADMIN_PASSWORD TELEGRAM_BOT_TOKEN ENCRYPTION_KEY GHCR_USERNAME GHCR_TOKEN; do
+          for var in SERVER_IP INFRASTRUCTURE_IP_LIST DOMAIN_NAME SSH_PRIVATE_KEY VPN_ADMIN_USERNAME VPN_ADMIN_PASSWORD TELEGRAM_BOT_TOKEN ENCRYPTION_KEY; do
             if [ -z "${!var}" ]; then
               echo "::error::Missing required secret: $var"
               exit 1
@@ -113,8 +111,6 @@ jobs:
           TELEGRAM_BOT_ADMIN: ${{ secrets.TELEGRAM_BOT_ADMIN }}
           TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           APP_IMAGE: ${{ steps.image_meta.outputs.app_image }}
         run: |
           ansible-playbook -i inventory.ini playbooks/deploy.yml --syntax-check
@@ -135,8 +131,6 @@ jobs:
           TELEGRAM_BOT_ADMIN: ${{ secrets.TELEGRAM_BOT_ADMIN }}
           TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           APP_IMAGE: ${{ steps.image_meta.outputs.app_image }}
         run: |
           ansible-playbook -i inventory.ini playbooks/deploy.yml --private-key ../.tmp-keys/id_rsa

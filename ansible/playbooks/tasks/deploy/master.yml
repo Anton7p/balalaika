@@ -14,11 +14,6 @@
     dest: "{{ app_dir }}/.env"
     mode: "0600"
 
-- name: Log in to GHCR on master host
-  ansible.builtin.shell: |
-    set -e
-    echo "{{ ghcr_token }}" | docker login ghcr.io -u "{{ ghcr_username }}" --password-stdin
-
 - name: Pull latest bot app image
   ansible.builtin.command:
     cmd: docker compose pull app

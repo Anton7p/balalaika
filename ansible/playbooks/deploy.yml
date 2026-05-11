@@ -23,8 +23,6 @@
     three_x_ui_vpn_port: "{{ lookup('env', 'THREE_X_UI_VPN_PORT') | default('8443', true) }}"
     three_x_ui_managed_inbound_remark: "{{ lookup('env', 'THREE_X_UI_MANAGED_INBOUND_REMARK') | default('balalaika-bot', true) }}"
     app_image: "{{ lookup('env', 'APP_IMAGE') }}"
-    ghcr_username: "{{ lookup('env', 'GHCR_USERNAME') }}"
-    ghcr_token: "{{ lookup('env', 'GHCR_TOKEN') }}"
     telegram_bot_token: "{{ lookup('env', 'TELEGRAM_BOT_TOKEN') }}"
     telegram_bot_admin: "{{ lookup('env', 'TELEGRAM_BOT_ADMIN') | default('', true) }}"
     telegram_admin_id: "{{ lookup('env', 'TELEGRAM_ADMIN_ID') | default('', true) }}"
@@ -44,8 +42,6 @@
           - three_x_ui_panel_port | length > 0
           - three_x_ui_sub_port | length > 0
           - app_image | length > 0
-          - ghcr_username | length > 0
-          - ghcr_token | length > 0
           - telegram_bot_token | length > 0
           - encryption_key | length > 0
           - >
