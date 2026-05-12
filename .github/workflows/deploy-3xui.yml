@@ -1,0 +1,86 @@
+name: Deploy 3x-ui
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: panel — только панель на master; nodes — только ноды; all — панель, затем ноды
+        required: true
+        type: choice
+        default: all
+        options:
+          - panel
+          - nodes
+          - all
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-3xui:
+    runs-on: ubuntu-latest
+    env:
+      MASTER_IP: ${{ secrets.MASTER_IP }}
+      NODE_IPS: ${{ secrets.NODE_IPS }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Ansible and sshpass
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install "ansible>=9.0.0"
+          sudo apt-get update
+          sudo apt-get install -y sshpass
+
+      - name: Write Ansible inventory (master)
+        if: ${{ inputs.target == 'panel' || inputs.target == 'all' }}
+        working-directory: ansible
+        run: ansible-playbook -i localhost, ci/ci-write-inventory.yml
+
+      - name: Prepare SSH private key
+        if: ${{ inputs.target == 'panel' || inputs.target == 'all' }}
+        shell: bash
+        run: |
+          mkdir -p .tmp-keys
+          printf '%s\n' "$SSH_PRIVATE_KEY" > .tmp-keys/id_rsa
+          chmod 600 .tmp-keys/id_rsa
+
+      - name: Verify SSH to master
+        if: ${{ inputs.target == 'panel' || inputs.target == 'all' }}
+        working-directory: ansible
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          ansible master -i inventory.ini -m ping --private-key ../.tmp-keys/id_rsa
+
+      - name: Syntax check — panel playbook
+        if: ${{ inputs.target == 'panel' || inputs.target == 'all' }}
+        working-directory: ansible
+        run: ansible-playbook -i inventory.ini 3xui/deploy-panel.yml --syntax-check
+
+      - name: Deploy 3x-ui panel (stub)
+        if: ${{ inputs.target == 'panel' || inputs.target == 'all' }}
+        working-directory: ansible
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          ansible-playbook -i inventory.ini 3xui/deploy-panel.yml --private-key ../.tmp-keys/id_rsa
+
+      - name: Syntax check — nodes playbook
+        if: ${{ inputs.target == 'nodes' || inputs.target == 'all' }}
+        working-directory: ansible
+        run: ansible-playbook -i localhost, 3xui/deploy-nodes.yml --syntax-check
+
+      - name: Deploy 3x-ui nodes (stub)
+        if: ${{ inputs.target == 'nodes' || inputs.target == 'all' }}
+        working-directory: ansible
+        env:
+          NODE_IPS: ${{ secrets.NODE_IPS }}
+        run: |
+          ansible-playbook -i localhost, 3xui/deploy-nodes.yml
+
+      - name: Cleanup temporary key material
+        if: always() && (inputs.target == 'panel' || inputs.target == 'all')
+        run: rm -rf .tmp-keys

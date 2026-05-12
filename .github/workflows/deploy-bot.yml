@@ -11,7 +11,7 @@ jobs:
   deploy-bot:
     runs-on: ubuntu-latest
     env:
-      SERVER_IP: ${{ secrets.SERVER_IP }}
+      MASTER_IP: ${{ secrets.MASTER_IP }}
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
       VPN_ADMIN_USERNAME: ${{ secrets.VPN_ADMIN_USERNAME }}
@@ -21,7 +21,6 @@ jobs:
       ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
       GITHUB_ACTOR: ${{ github.actor }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -88,7 +87,6 @@ jobs:
           TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           APP_IMAGE: ${{ steps.image_meta.outputs.app_image }}
-          APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
         run: |
           ansible-playbook -i inventory.ini bot/deploy-app.yml --syntax-check
 
@@ -103,7 +101,6 @@ jobs:
           TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           APP_IMAGE: ${{ steps.image_meta.outputs.app_image }}
-          APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
         run: |
           ansible-playbook -i inventory.ini bot/deploy-app.yml --private-key ../.tmp-keys/id_rsa
 

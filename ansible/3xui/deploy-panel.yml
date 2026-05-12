@@ -1,0 +1,9 @@
+---
+# Деплой панели 3x-ui на master (сейчас — заглушка).
+- name: Deploy 3x-ui panel on master
+  hosts: master
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Include panel placeholder tasks
+      ansible.builtin.include_tasks: tasks/panel/10-placehold.yml

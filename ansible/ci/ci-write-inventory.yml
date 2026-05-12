@@ -3,7 +3,7 @@
 # No shell/Python helpers — only Ansible + Jinja.
 #
 # Env:
-#   SERVER_IP — JSON object {"address","password"} (both required, non-empty)
+#   MASTER_IP — JSON object {"address","password"} (both required, non-empty)
 #   OUTPUT_PATH — optional absolute path; default ../inventory.ini (ansible root)
 
 - name: Materialize inventory.ini for CI
@@ -18,45 +18,45 @@
                    playbook_dir | dirname ~ '/inventory.ini') }}
 
   tasks:
-    - name: Read SERVER_IP from environment
+    - name: Read MASTER_IP from environment
       ansible.builtin.set_fact:
-        _ci_server_raw: "{{ lookup('env', 'SERVER_IP', default='') | trim }}"
+        _ci_master_raw: "{{ lookup('env', 'MASTER_IP', default='') | trim }}"
 
-    - name: Require SERVER_IP
+    - name: Require MASTER_IP
       ansible.builtin.assert:
         that:
-          - _ci_server_raw | length > 0
-        fail_msg: SERVER_IP is empty
+          - _ci_master_raw | length > 0
+        fail_msg: MASTER_IP is empty
 
-    - name: Require SERVER_IP JSON object
+    - name: Require MASTER_IP JSON object
       ansible.builtin.assert:
         that:
-          - _ci_server_raw.startswith('{')
+          - _ci_master_raw.startswith('{')
         fail_msg: >-
-          SERVER_IP must be JSON with required keys address and password,
+          MASTER_IP must be JSON with required keys address and password,
           e.g. {"address":"203.0.113.10","password":"your-root-password"}
 
-    - name: Parse SERVER_IP JSON
+    - name: Parse MASTER_IP JSON
       ansible.builtin.set_fact:
-        _ci_json: "{{ _ci_server_raw | from_json }}"
+        _ci_json: "{{ _ci_master_raw | from_json }}"
 
-    - name: Require SERVER_IP JSON mapping
+    - name: Require MASTER_IP JSON mapping
       ansible.builtin.assert:
         that:
           - _ci_json is mapping
-        fail_msg: SERVER_IP must be a JSON object (not an array or bare string)
+        fail_msg: MASTER_IP must be a JSON object (not an array or bare string)
 
-    - name: Extract address and password from SERVER_IP
+    - name: Extract address and password from MASTER_IP
       ansible.builtin.set_fact:
         _ci_host_candidate: "{{ _ci_json.address | default('', true) | trim }}"
         _ci_master_password: "{{ _ci_json.password | default('', true) | trim }}"
 
-    - name: Require non-empty address and password in SERVER_IP
+    - name: Require non-empty address and password in MASTER_IP
       ansible.builtin.assert:
         that:
           - _ci_host_candidate | length > 0
           - _ci_master_password | length > 0
-        fail_msg: SERVER_IP JSON must include non-empty address and password
+        fail_msg: MASTER_IP JSON must include non-empty address and password
 
     - name: Normalize host candidate (scheme, quotes)
       ansible.builtin.set_fact:
@@ -101,12 +101,12 @@
       ansible.builtin.set_fact:
         ci_master_host: "{{ ci_master_host | trim }}"
 
-    - name: Validate resolved SERVER_IP
+    - name: Validate resolved MASTER_IP
       ansible.builtin.assert:
         that:
           - ci_master_host | length > 0
           - ci_master_host is match('^[-0-9A-Za-z_.]+$')
-        fail_msg: SERVER_IP is not parseable
+        fail_msg: MASTER_IP is not parseable
 
     - name: Alias master password for template
       ansible.builtin.set_fact:

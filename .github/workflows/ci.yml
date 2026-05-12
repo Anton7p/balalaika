@@ -18,7 +18,7 @@ jobs:
         run: npm install
       - name: Prisma schema validate
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_CI || 'postgresql://ci:ci@localhost:5432/ci?schema=public' }}
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
         run: npx prisma validate
       - name: Build
         run: npm run build

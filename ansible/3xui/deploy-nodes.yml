@@ -1,0 +1,11 @@
+---
+# Деплой нод 3x-ui (сейчас — заглушка; данные будут из NODE_IPS).
+- name: Deploy 3x-ui nodes (placeholder)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    node_ips_raw: "{{ lookup('env', 'NODE_IPS', default='') }}"
+  tasks:
+    - name: Include nodes placeholder tasks
+      ansible.builtin.include_tasks: tasks/nodes/10-placehold.yml

@@ -1,0 +1,8 @@
+---
+# Заглушка: сюда войдёт раскладка нод из NODE_IPS (SSH/API к каждой ноде).
+- name: Stub — ноды 3x-ui (пока без реальных шагов)
+  ansible.builtin.debug:
+    msg: >-
+      Заглушка деплоя нод: NODE_IPS в окружении
+      {{ 'задан (длина ' ~ (node_ips_raw | default('') | trim | length | string) ~ ')' if (node_ips_raw | default('') | trim | length) > 0 else 'пустой или не задан' }}.
+      Значение секрета в лог не выводим.
