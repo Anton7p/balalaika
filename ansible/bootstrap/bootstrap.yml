@@ -1,6 +1,12 @@
 ---
-- name: Bootstrap master host (base system)
-  hosts: master
+# Два этапа, один маркер на хост: {{ bootstrap_marker_path }}
+# — Фаза 1 (hosts: all): BBR, Docker, SSH-ключ, hardening + UFW. На хостах из [nodes]
+#   сразу пишется маркер (для них nginx не нужен). Повторный прогон пропускается.
+# — Фаза 2 (hosts: master): nginx + certbot; после успеха — маркер на master.
+# Master до конца фазы 2 без маркера, чтобы фаза 1 могла завершиться до TLS.
+
+- name: "Bootstrap фаза 1: сеть (BBR), Docker, SSH"
+  hosts: all
   become: true
   gather_facts: false
   vars:
@@ -12,7 +18,7 @@
     bootstrap_marker_path: "/etc/{{ marker_slug }}-bootstrap.done"
   pre_tasks:
     - name: Ensure Python is installed (for fresh hosts)
-      raw: test -e /usr/bin/python3 || (apt-get update && apt-get install -y python3)
+      ansible.builtin.raw: test -e /usr/bin/python3 || (apt-get update && apt-get install -y python3)
       changed_when: false
 
     - name: Gather facts after Python bootstrap
@@ -25,31 +31,42 @@
           - ssh_public_key | length > 0
         fail_msg: "SSH_PUBLIC_KEY is required to bootstrap access."
 
-    - name: Check whether bootstrap marker already exists
+    - name: Check whether bootstrap marker already exists on this host
       ansible.builtin.stat:
         path: "{{ bootstrap_marker_path }}"
-      register: bootstrap_marker
-
-    - name: Set bootstrap state fact
-      ansible.builtin.set_fact:
-        bootstrap_already_done: "{{ bootstrap_marker.stat.exists | default(false) }}"
+      register: bootstrap_marker_stat
 
   tasks:
-    - name: TCP BBR Congestion Control
-      ansible.builtin.include_tasks: tasks/common/10-tcp-bbr.yml
-      when: not bootstrap_already_done
+    - name: TCP BBR congestion control
+      ansible.builtin.include_tasks: tasks/common/tcp-bbr.yml
+      when: not bootstrap_marker_stat.stat.exists
 
-    - name: Docker Setup
-      ansible.builtin.include_tasks: tasks/common/20-docker.yml
-      when: not bootstrap_already_done
+    - name: Docker engine and DOCKER-USER rules
+      ansible.builtin.include_tasks: tasks/common/docker.yml
+      when: not bootstrap_marker_stat.stat.exists
 
-    - name: SSH Key Setup
-      ansible.builtin.include_tasks: tasks/common/30-ssh-key.yml
-      when: not bootstrap_already_done
+    - name: SSH authorized key for admin access
+      ansible.builtin.include_tasks: tasks/common/ssh-key.yml
+      when: not bootstrap_marker_stat.stat.exists
 
-    - name: SSH Hardening
-      ansible.builtin.include_tasks: tasks/common/40-ssh-hardening.yml
-      when: not bootstrap_already_done
+    - name: SSH hardening and host firewall
+      ansible.builtin.include_tasks: tasks/common/ssh-hardening.yml
+      when: not bootstrap_marker_stat.stat.exists
+
+    - name: Record bootstrap complete on node hosts (no TLS phase here)
+      ansible.builtin.copy:
+        dest: "{{ bootstrap_marker_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          bootstrap_completed=true
+          phase=system
+          completed_at={{ ansible_date_time.iso8601 }}
+      when:
+        - not bootstrap_marker_stat.stat.exists
+        - (groups['nodes'] | default([])) | length > 0
+        - inventory_hostname in (groups['nodes'] | default([]))
 
   handlers:
     - name: Restart sshd
@@ -57,7 +74,7 @@
         name: ssh
         state: restarted
 
-- name: Configure master edge services
+- name: "Bootstrap фаза 2: nginx и TLS (только master)"
   hosts: master
   become: true
   gather_facts: true
@@ -71,18 +88,19 @@
         that:
           - domain_name is string
           - domain_name | length > 0
-        fail_msg: "DOMAIN_NAME is required for master bootstrap."
+        fail_msg: "DOMAIN_NAME is required for nginx/certbot on master."
 
     - name: Check whether bootstrap marker already exists on master
       ansible.builtin.stat:
         path: "{{ bootstrap_marker_path }}"
       register: master_bootstrap_marker
+
   tasks:
-    - name: Nginx and Certbot setup on master
-      ansible.builtin.include_tasks: tasks/master/10-nginx-certbot.yml
+    - name: Nginx and Certbot on master
+      ansible.builtin.include_tasks: tasks/master/nginx-certbot.yml
       when: not (master_bootstrap_marker.stat.exists | default(false))
 
-    - name: Create bootstrap completion marker on master
+    - name: Record bootstrap complete on master (system + TLS)
       ansible.builtin.copy:
         dest: "{{ bootstrap_marker_path }}"
         owner: root
@@ -90,5 +108,6 @@
         mode: "0644"
         content: |
           bootstrap_completed=true
+          phase=full
           completed_at={{ ansible_date_time.iso8601 }}
       when: not (master_bootstrap_marker.stat.exists | default(false))

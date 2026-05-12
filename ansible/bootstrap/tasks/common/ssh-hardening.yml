@@ -20,6 +20,13 @@
     line: "ChallengeResponseAuthentication no"
   notify: Restart sshd
 
+- name: Limit SSH authentication attempts per connection
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?MaxAuthTries\\s+"
+    line: "MaxAuthTries 3"
+  notify: Restart sshd
+
 - name: Force key-only root login
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
@@ -27,6 +34,16 @@
     line: "PermitRootLogin prohibit-password"
   when: ssh_username == "root"
   notify: Restart sshd
+
+- name: UFW default deny incoming
+  community.general.ufw:
+    direction: incoming
+    default: deny
+
+- name: UFW default allow outgoing
+  community.general.ufw:
+    direction: outgoing
+    default: allow
 
 - name: Allow OpenSSH in firewall
   community.general.ufw:

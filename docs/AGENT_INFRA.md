@@ -24,4 +24,4 @@ ssh -i $env:USERPROFILE\.ssh\id_ed25519 -o BatchMode=yes -o StrictHostKeyCheckin
 
 - Секреты и **`inventory.ini`** с паролями **не коммитить**.
 
-Закрытый набор имён секретов GitHub: **[`GITHUB_SECRETS.md`](GITHUB_SECRETS.md)**. REST API панели: **[`PANEL_REST_API.md`](PANEL_REST_API.md)**. Версия панели, master и ноды: **[`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md)**.
+Закрытый набор имён секретов GitHub: **[`GITHUB_SECRETS.md`](GITHUB_SECRETS.md)**. REST API панели: **[`PANEL_REST_API.md`](PANEL_REST_API.md)**. Версия панели, master и ноды: **[`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md)**. Установка панели на master: **[`PANEL_INSTALL_MASTER.md`](PANEL_INSTALL_MASTER.md)**. Порты и hardening: **[`SERVER_HARDENING.md`](SERVER_HARDENING.md)**.

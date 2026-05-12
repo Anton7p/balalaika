@@ -1,6 +1,8 @@
 [master]
 master_host ansible_host={{ ci_master_host }} ansible_user=root ansible_password='{{ ci_master_password }}'
 
+[nodes]
+
 [all:vars]
 ansible_connection=ssh
 ansible_become=true

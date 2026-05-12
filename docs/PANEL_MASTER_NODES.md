@@ -11,7 +11,7 @@
 
 Подробнее по секретам: [`GITHUB_SECRETS.md`](GITHUB_SECRETS.md). Подключение к master по SSH: [`AGENT_INFRA.md`](AGENT_INFRA.md). REST панели: [`PANEL_REST_API.md`](PANEL_REST_API.md).
 
-**Автоматизация:** GitHub Actions workflow **[`.github/workflows/deploy-3xui.yml`](../.github/workflows/deploy-3xui.yml)** — вручную, параметр **target**: `panel` (только master), `nodes` (только ноды, без SSH на master), `all` (сначала панель, затем ноды). Плейбуки и заглушки: каталог **`ansible/3xui/`** (`deploy-panel.yml`, `deploy-nodes.yml`, `tasks/panel/`, `tasks/nodes/`).
+**Автоматизация:** GitHub Actions workflow **[`deploy-3xui.yml`](../.github/workflows/deploy-3xui.yml)** — вручную, параметр **target**: `panel` (только master), `nodes` (только ноды, без SSH на master), `all` (сначала панель, затем ноды). Плейбуки и заглушки: каталог **`ansible/3xui/`** (`deploy-panel.yml`, `deploy-nodes.yml`, `tasks/panel/`, `tasks/nodes/`). Пошаговый план установки панели на master: **[`PANEL_INSTALL_MASTER.md`](PANEL_INSTALL_MASTER.md)**.
 
 ## Кратко, что даёт **v3.0.1** для нас
 
