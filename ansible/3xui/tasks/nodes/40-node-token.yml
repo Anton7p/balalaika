@@ -1,0 +1,52 @@
+---
+- name: Read API token from local node panel (embedded Python)
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: |
+      python3 <<'PY'
+      {% raw %}
+      import http.cookiejar
+      import json
+      import os
+      import urllib.parse
+      import urllib.request
+
+      origin = os.environ["XUI_LOCAL_ORIGIN"].rstrip("/")
+      user = os.environ["XUI_ADMIN_USER"]
+      password = os.environ["XUI_ADMIN_PASS"]
+      cj = http.cookiejar.CookieJar()
+      opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+
+      csrf = json.loads(opener.open(origin + "/panel/csrf-token", timeout=60).read().decode("utf-8"))["obj"]
+      login_body = urllib.parse.urlencode({"username": user, "password": password}).encode("utf-8")
+      lr = urllib.request.Request(
+          origin + "/panel/login",
+          data=login_body,
+          method="POST",
+          headers={
+              "Content-Type": "application/x-www-form-urlencoded",
+              "X-CSRF-Token": csrf,
+              "X-Requested-With": "XMLHttpRequest",
+              "Accept": "application/json",
+          },
+      )
+      b_login = json.loads(opener.open(lr, timeout=60).read().decode("utf-8"))
+      if not b_login.get("success"):
+          raise SystemExit("login failed: " + str(b_login.get("msg")))
+
+      tok_raw = opener.open(origin + "/panel/panel/setting/getApiToken", timeout=60).read().decode("utf-8")
+      print(json.loads(tok_raw)["obj"], end="")
+      {% endraw %}
+      PY
+  register: xui_node_bearer_cmd
+  changed_when: false
+  no_log: true
+  environment:
+    XUI_LOCAL_ORIGIN: "http://127.0.0.1:{{ xui_panel_http_port }}"
+    XUI_ADMIN_USER: "{{ xui_vpn_username }}"
+    XUI_ADMIN_PASS: "{{ xui_vpn_password }}"
+
+- name: Save node API token as host fact
+  ansible.builtin.set_fact:
+    xui_node_api_token: "{{ xui_node_bearer_cmd.stdout | trim }}"
+    cacheable: true

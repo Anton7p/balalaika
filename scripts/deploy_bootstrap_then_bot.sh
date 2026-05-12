@@ -3,7 +3,8 @@
 #
 # Требуются переменные из .env / export:
 #   bootstrap: MASTER_IP, DOMAIN_NAME, SSH_PUBLIC_KEY (+ NODE_IPS при нодах в inventory)
-#   панель 3x-ui: те же MASTER_IP, SSH_PRIVATE_KEY (см. scripts/deploy_3xui_panel.sh)
+#   панель 3x-ui: MASTER_IP, SSH_PRIVATE_KEY, DOMAIN_NAME, VPN_ADMIN_USERNAME, VPN_ADMIN_PASSWORD;
+#   опционально TELEGRAM_BOT_ADMIN + TELEGRAM_ADMIN_ID (уведомления панели).
 #   ноды 3x-ui: NODE_IPS (JSON-массив) — шаг пропускается, если переменная пустая
 #   бот: VPN_ADMIN_*, TELEGRAM_BOT_TOKEN, ENCRYPTION_KEY, GITHUB_TOKEN, GITHUB_ACTOR,
 #        и APP_IMAGE или флаг --build

@@ -1,0 +1,26 @@
+---
+# 3x-ui (MHSanaei) — pinned image and paths (see docs/PANEL_MASTER_NODES.md).
+xui_image: ghcr.io/mhsanaei/3x-ui:v3.0.1
+xui_install_dir: /opt/infrastructure/panel
+xui_container_name: xui_app
+xui_compose_project: panel
+xui_web_base_path: /panel/
+xui_panel_http_port: 2053
+xui_publish_host: 127.0.0.1
+# Published Docker port on nodes (master uses 127.0.0.1 only).
+xui_node_publish_host: "0.0.0.0"
+xui_enable_fail2ban: "true"
+
+# VLESS + REALITY inbound (matches app expectation: flow xtls-rprx-vision).
+xui_inbound_port: 8443
+xui_inbound_remark: balalaika-ansible-inbound
+xui_reality_dest: www.yahoo.com:443
+xui_reality_server_names:
+  - www.yahoo.com
+
+# Nginx: file to inject proxy locations (override if certbot used another vhost).
+xui_nginx_site_path: /etc/nginx/sites-enabled/default
+
+# Node panel (no TLS behind master by default).
+xui_node_http_port: 2053
+xui_node_scheme: http

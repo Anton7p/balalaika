@@ -1,11 +1,58 @@
 ---
-# Деплой нод 3x-ui (сейчас — заглушка; данные будут из NODE_IPS).
-- name: Deploy 3x-ui nodes (placeholder)
+# Деплой 3x-ui на нодах и регистрация на master (API). Нужны inventory [nodes], DOMAIN_NAME, VPN_ADMIN_*.
+- name: Require non-empty nodes inventory
   hosts: localhost
   connection: local
   gather_facts: false
-  vars:
-    node_ips_raw: "{{ lookup('env', 'NODE_IPS', default='') }}"
   tasks:
-    - name: Include nodes placeholder tasks
-      ansible.builtin.include_tasks: tasks/nodes/10-placehold.yml
+    - name: Assert [nodes] is present and non-empty
+      ansible.builtin.assert:
+        that:
+          - (groups['nodes'] | default([])) | length > 0
+        fail_msg: >-
+          No hosts in group [nodes]. Export NODE_IPS (JSON array) and run ci/ci-write-inventory.yml
+          to build inventory.ini, then run this playbook with -i inventory.ini.
+
+- name: Install 3x-ui on each node
+  hosts: nodes
+  become: true
+  gather_facts: false
+  vars_files:
+    - defaults/main.yml
+  vars:
+    xui_publish_host: "{{ xui_node_publish_host }}"
+    xui_vpn_username: "{{ lookup('env', 'VPN_ADMIN_USERNAME') | default('', true) | trim }}"
+    xui_vpn_password: "{{ lookup('env', 'VPN_ADMIN_PASSWORD') | default('', true) | trim }}"
+  pre_tasks:
+    - name: Require VPN admin secrets on nodes
+      ansible.builtin.assert:
+        that:
+          - xui_vpn_username | length > 0
+          - xui_vpn_password | length > 0
+        fail_msg: Set VPN_ADMIN_USERNAME and VPN_ADMIN_PASSWORD in the environment.
+
+  tasks:
+    - ansible.builtin.include_tasks: tasks/nodes/10-compose.yml
+    - ansible.builtin.include_tasks: tasks/nodes/20-admin-cli.yml
+    - ansible.builtin.include_tasks: tasks/nodes/30-ufw.yml
+    - ansible.builtin.include_tasks: tasks/nodes/40-node-token.yml
+
+- name: Register nodes on master panel
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - defaults/main.yml
+  vars:
+    xui_domain_name: "{{ lookup('env', 'DOMAIN_NAME') | default('', true) | trim }}"
+    xui_vpn_username: "{{ lookup('env', 'VPN_ADMIN_USERNAME') | default('', true) | trim }}"
+    xui_vpn_password: "{{ lookup('env', 'VPN_ADMIN_PASSWORD') | default('', true) | trim }}"
+  pre_tasks:
+    - name: Require DOMAIN_NAME for master API URL
+      ansible.builtin.assert:
+        that:
+          - xui_domain_name | length > 0
+        fail_msg: Set DOMAIN_NAME (public master hostname used in https://…).
+
+  tasks:
+    - ansible.builtin.include_tasks: tasks/nodes/50-register-on-master.yml

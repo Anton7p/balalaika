@@ -1,0 +1,11 @@
+services:
+  x-ui:
+    image: {{ xui_image | quote }}
+    container_name: {{ xui_container_name | quote }}
+    restart: unless-stopped
+    volumes:
+      - {{ (xui_install_dir ~ '/db') | quote }}:/etc/x-ui
+    ports:
+      - "{{ xui_publish_host }}:{{ xui_panel_http_port }}:{{ xui_panel_http_port }}"
+    environment:
+      XUI_ENABLE_FAIL2BAN: {{ xui_enable_fail2ban | quote }}

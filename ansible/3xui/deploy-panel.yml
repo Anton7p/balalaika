@@ -1,9 +1,30 @@
 ---
-# Деплой панели 3x-ui на master (сейчас — заглушка).
+# Деплой панели 3x-ui на master: Docker, nginx, UFW, admin CLI, inbound через API.
 - name: Deploy 3x-ui panel on master
   hosts: master
   become: true
   gather_facts: false
+  vars_files:
+    - defaults/main.yml
+  vars:
+    xui_domain_name: "{{ lookup('env', 'DOMAIN_NAME') | default('', true) | trim }}"
+    xui_vpn_username: "{{ lookup('env', 'VPN_ADMIN_USERNAME') | default('', true) | trim }}"
+    xui_vpn_password: "{{ lookup('env', 'VPN_ADMIN_PASSWORD') | default('', true) | trim }}"
+  pre_tasks:
+    - name: Require DOMAIN_NAME and VPN admin secrets
+      ansible.builtin.assert:
+        that:
+          - xui_domain_name | length > 0
+          - xui_vpn_username | length > 0
+          - xui_vpn_password | length > 0
+        fail_msg: >-
+          Set DOMAIN_NAME, VPN_ADMIN_USERNAME, VPN_ADMIN_PASSWORD in the environment
+          (GitHub Actions secrets for deploy-3xui).
+
   tasks:
-    - name: Include panel placeholder tasks
-      ansible.builtin.include_tasks: tasks/panel/10-placehold.yml
+    - ansible.builtin.include_tasks: tasks/panel/10-compose.yml
+    - ansible.builtin.include_tasks: tasks/panel/20-admin-cli.yml
+    - ansible.builtin.include_tasks: tasks/panel/22-telegram-cli.yml
+    - ansible.builtin.include_tasks: tasks/panel/30-nginx.yml
+    - ansible.builtin.include_tasks: tasks/panel/40-ufw-inbound.yml
+    - ansible.builtin.include_tasks: tasks/panel/50-api-inbound.yml

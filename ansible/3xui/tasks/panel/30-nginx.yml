@@ -1,0 +1,79 @@
+---
+- name: Check nginx site file exists
+  ansible.builtin.stat:
+    path: "{{ xui_nginx_site_path }}"
+  register: xui_nginx_stat
+
+- name: Require nginx site for TLS injection
+  ansible.builtin.assert:
+    that:
+      - xui_nginx_stat.stat.exists
+    fail_msg: >-
+      Nginx site {{ xui_nginx_site_path }} not found. Set xui_nginx_site_path to the vhost
+      that certbot created for {{ xui_domain_name }}.
+
+- name: Deploy 3x-ui nginx snippet (location blocks)
+  ansible.builtin.template:
+    src: nginx-3xui-locations.conf.j2
+    dest: "/etc/nginx/snippets/3xui-{{ xui_domain_name }}.conf"
+    mode: "0644"
+
+- name: Detect existing include for 3x-ui snippet
+  ansible.builtin.command:
+    argv:
+      - grep
+      - -qF
+      - "include /etc/nginx/snippets/3xui-{{ xui_domain_name }}.conf;"
+      - "{{ xui_nginx_site_path }}"
+  register: xui_include_grep
+  changed_when: false
+  failed_when: false
+
+- name: Add snippet include to nginx site when missing
+  when: xui_include_grep.rc != 0
+  block:
+    - name: Try insertafter LetsEncrypt options-ssl-nginx
+      ansible.builtin.lineinfile:
+        path: "{{ xui_nginx_site_path }}"
+        line: "    include /etc/nginx/snippets/3xui-{{ xui_domain_name }}.conf;"
+        insertafter: 'include /etc/letsencrypt/options-ssl-nginx.conf;'
+        state: present
+      ignore_errors: true
+      register: xui_li_options
+
+    - name: Re-check include line
+      ansible.builtin.command:
+        argv:
+          - grep
+          - -qF
+          - "include /etc/nginx/snippets/3xui-{{ xui_domain_name }}.conf;"
+          - "{{ xui_nginx_site_path }}"
+      register: xui_include_grep2
+      changed_when: false
+      failed_when: false
+
+    - name: Try insertafter ssl_certificate_key (fallback)
+      ansible.builtin.lineinfile:
+        path: "{{ xui_nginx_site_path }}"
+        line: "    include /etc/nginx/snippets/3xui-{{ xui_domain_name }}.conf;"
+        insertafter: 'ssl_certificate_key /etc/letsencrypt/live/{{ xui_domain_name }}/privkey.pem;'
+        state: present
+      when: xui_include_grep2.rc != 0
+
+- name: Assert 3x-ui include is present in nginx site
+  ansible.builtin.command:
+    argv:
+      - grep
+      - -qF
+      - "include /etc/nginx/snippets/3xui-{{ xui_domain_name }}.conf;"
+      - "{{ xui_nginx_site_path }}"
+  changed_when: false
+
+- name: Validate and reload nginx
+  ansible.builtin.command: nginx -t
+  changed_when: false
+
+- name: Reload nginx
+  ansible.builtin.service:
+    name: nginx
+    state: reloaded

@@ -1,0 +1,123 @@
+---
+- name: Configure inbound on public panel URL (controller, embedded Python)
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: |
+      python3 <<'PY'
+      {% raw %}
+      import http.cookiejar
+      import json
+      import os
+      import secrets
+      import ssl
+      import urllib.parse
+      import urllib.request
+
+      origin = os.environ["XUI_ORIGIN"].rstrip("/")
+      user = os.environ["XUI_ADMIN_USER"]
+      password = os.environ["XUI_ADMIN_PASS"]
+      inbound_remark = os.environ["XUI_INBOUND_REMARK"]
+      port = int(os.environ["XUI_INBOUND_PORT"])
+      dest = os.environ["XUI_REALITY_DEST"]
+      snames = json.loads(os.environ["XUI_REALITY_SNAMES_JSON"])
+      ctx = ssl.create_default_context()
+      cj = http.cookiejar.CookieJar()
+      opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+
+      csrf = json.loads(opener.open(origin + "/panel/csrf-token", timeout=60).read().decode("utf-8"))["obj"]
+      login_body = urllib.parse.urlencode({"username": user, "password": password}).encode("utf-8")
+      lr = urllib.request.Request(
+          origin + "/panel/login",
+          data=login_body,
+          method="POST",
+          headers={
+              "Content-Type": "application/x-www-form-urlencoded",
+              "X-CSRF-Token": csrf,
+              "X-Requested-With": "XMLHttpRequest",
+              "Accept": "application/json",
+          },
+      )
+      b_login = json.loads(opener.open(lr, timeout=60).read().decode("utf-8"))
+      if not b_login.get("success"):
+          raise SystemExit("login failed: " + str(b_login.get("msg")))
+
+      tok_raw = opener.open(origin + "/panel/panel/setting/getApiToken", timeout=60).read().decode("utf-8")
+      bearer = json.loads(tok_raw)["obj"]
+
+      def breq(path, payload=None, method=None):
+          if method is None:
+              method = "POST" if payload is not None else "GET"
+          h = {"Authorization": "Bearer " + bearer, "Accept": "application/json"}
+          data = None
+          if payload is not None:
+              data = json.dumps(payload).encode("utf-8")
+              h["Content-Type"] = "application/json"
+          r = urllib.request.Request(origin + path, data=data, method=method, headers=h)
+          with urllib.request.urlopen(r, context=ctx, timeout=90) as resp:
+              return json.loads(resp.read().decode("utf-8"))
+
+      listed = breq("/panel/panel/api/inbounds/list")
+      objs = listed.get("obj") or []
+      if isinstance(objs, list):
+          for ib in objs:
+              if isinstance(ib, dict) and ib.get("remark") == inbound_remark:
+                  print("already_have_inbound_skip")
+                  raise SystemExit(0)
+
+      cert = breq("/panel/panel/api/server/getNewX25519Cert")
+      obj = cert.get("obj")
+      if isinstance(obj, str):
+          obj = json.loads(obj)
+      priv = obj["privateKey"]
+      short_id = secrets.token_hex(8)
+      stream = {
+          "network": "tcp",
+          "security": "reality",
+          "realitySettings": {
+              "show": False,
+              "xver": 0,
+              "dest": dest,
+              "serverNames": snames,
+              "privateKey": priv,
+              "minClientVer": "",
+              "maxClientVer": "",
+              "maxTimediff": 0,
+              "shortIds": [short_id],
+          },
+      }
+      settings = {"clients": [], "decryption": "none", "fallbacks": []}
+      sniff = {"enabled": True, "destOverride": ["http", "tls", "quic"], "metadataOnly": False}
+      body = {
+          "up": 0,
+          "down": 0,
+          "total": 0,
+          "remark": inbound_remark,
+          "enable": True,
+          "expiryTime": 0,
+          "listen": "",
+          "port": port,
+          "protocol": "vless",
+          "settings": json.dumps(settings),
+          "streamSettings": json.dumps(stream),
+          "tag": "",
+          "sniffing": json.dumps(sniff),
+      }
+      out = breq("/panel/panel/api/inbounds/add", payload=body, method="POST")
+      if not out.get("success"):
+          raise SystemExit("inbound add failed: " + str(out.get("msg")))
+      print("inbound_created")
+      {% endraw %}
+      PY
+  delegate_to: localhost
+  run_once: true
+  register: xui_panel_inbound_api
+  changed_when: "'inbound_created' in (xui_panel_inbound_api.stdout | default(''))"
+  no_log: true
+  environment:
+    XUI_ORIGIN: "https://{{ xui_domain_name }}"
+    XUI_ADMIN_USER: "{{ xui_vpn_username }}"
+    XUI_ADMIN_PASS: "{{ xui_vpn_password }}"
+    XUI_INBOUND_REMARK: "{{ xui_inbound_remark }}"
+    XUI_INBOUND_PORT: "{{ xui_inbound_port | string }}"
+    XUI_REALITY_DEST: "{{ xui_reality_dest }}"
+    XUI_REALITY_SNAMES_JSON: "{{ xui_reality_server_names | to_json }}"

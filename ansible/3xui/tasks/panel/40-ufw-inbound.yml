@@ -1,0 +1,7 @@
+---
+- name: Allow VPN inbound port on firewall (UFW)
+  community.general.ufw:
+    rule: allow
+    port: "{{ xui_inbound_port | string }}"
+    proto: tcp
+    comment: 3x-ui VLESS inbound (ansible)

@@ -1,0 +1,7 @@
+---
+- name: Allow node panel API port (UFW)
+  community.general.ufw:
+    rule: allow
+    port: "{{ xui_panel_http_port | string }}"
+    proto: tcp
+    comment: 3x-ui node panel API (ansible)

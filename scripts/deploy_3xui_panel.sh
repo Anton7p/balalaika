@@ -3,8 +3,10 @@
 #
 #   bash scripts/deploy_3xui_panel.sh
 #
-# Нужны в .env или в окружении: MASTER_IP (JSON), SSH_PRIVATE_KEY (путь к ключу).
-# Опционально: NODE_IPS — попадёт в inventory.ini для группы [nodes] (сам плейбук панели на master их не трогает).
+# Нужны в .env или в окружении: MASTER_IP (JSON), SSH_PRIVATE_KEY, DOMAIN_NAME,
+# VPN_ADMIN_USERNAME, VPN_ADMIN_PASSWORD.
+# Опционально: TELEGRAM_BOT_ADMIN + TELEGRAM_ADMIN_ID — уведомления панели 3x-ui (tgBotToken + chat id).
+# Опционально: NODE_IPS — попадёт в inventory.ini для группы [nodes].
 # Из корня репозитория в WSL/Linux. При CRLF: sed -i 's/\r$//' scripts/deploy_3xui_panel.sh
 set -euo pipefail
 
@@ -71,6 +73,13 @@ if [[ -z "${MASTER_IP:-}" ]]; then
   echo "Не задан MASTER_IP (JSON {\"address\",\"password\"}) — .env или export." >&2
   exit 1
 fi
+
+for v in DOMAIN_NAME VPN_ADMIN_USERNAME VPN_ADMIN_PASSWORD; do
+  if [[ -z "${!v:-}" ]]; then
+    echo "Не задана переменная $v — нужна для плейбука панели (export или .env)." >&2
+    exit 1
+  fi
+done
 
 if [[ ! -f "$SSH_PRIVATE_KEY" ]]; then
   echo "Нет файла ключа: $SSH_PRIVATE_KEY (задайте SSH_PRIVATE_KEY=...)." >&2

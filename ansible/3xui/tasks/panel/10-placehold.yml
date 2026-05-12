@@ -1,7 +1,0 @@
----
-# Заглушка: сюда войдёт установка/обновление панели 3x-ui на master (см. docs/PANEL_MASTER_NODES.md).
-- name: Stub — панель 3x-ui на master (пока без реальных шагов)
-  ansible.builtin.debug:
-    msg: >-
-      Заглушка деплоя панели: хост {{ inventory_hostname }}.
-      Дальше — Docker/compose или скрипт установки под v3.0.1.
