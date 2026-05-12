@@ -6,6 +6,7 @@ on:
 permissions:
   contents: read
   packages: write
+  actions: write
 
 jobs:
   deploy-bot:
@@ -50,6 +51,8 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: ${{ steps.image_meta.outputs.app_image }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Install Ansible and sshpass
         run: |

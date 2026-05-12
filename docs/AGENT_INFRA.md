@@ -8,6 +8,29 @@
 
 Команды агента Cursor выполняются **на вашем ПК**; до сервера «доходит» только ваш реально работающий SSH.
 
+## Локальный Ansible (WSL)
+
+Плейбуки рассчитаны на **Linux-контроллер** (пути, `ansible-playbook`). На Windows удобно вызывать Ansible из **WSL** в каталоге репозитория.
+
+На WSL при проверке репозитория: **Python 3.12.3**, **`ansible-playbook` [core 2.20.4]** (`ansible-playbook --version`). У себя сверяйте `python3 --version` и `ansible-playbook --version`. Если Ansible не установлен: `sudo apt update && sudo apt install -y ansible` (или `pip install --user "ansible>=9"`).
+
+Сбор **`inventory.ini`** из **`MASTER_IP`** (JSON в переменной окружения, не коммитить значение):
+
+```bash
+cd /path/to/balalaika/ansible
+export MASTER_IP='{"address":"YOUR_IP","password":"YOUR_ROOT_PASSWORD"}'
+ansible-playbook -i localhost, ci/ci-write-inventory.yml
+```
+
+Дальше, например, проверка доступа и синтаксис (ключ в файле, как в CI):
+
+```bash
+ansible master -i inventory.ini -m ping --private-key ~/.ssh/id_ed25519
+ansible-playbook -i inventory.ini bot/deploy-app.yml --syntax-check
+```
+
+Тот же **`MASTER_IP`** и SSH-ключ подходят для **`bootstrap/bootstrap.yml`**, **`3xui/deploy-panel.yml`** и других плейбуков из этого репозитория — рабочая директория обычно **`ansible/`**, в корне репозитория лежат Dockerfile и приложение.
+
 **Проверка (bash):**
 
 ```bash

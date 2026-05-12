@@ -49,12 +49,28 @@
   changed_when: "'Started' in app_up.stdout or 'Recreated' in app_up.stdout or 'Creating' in app_up.stdout"
 
 - name: Smoke check bot app health endpoint
-  ansible.builtin.uri:
-    url: "http://127.0.0.1:3000/health"
-    method: GET
-    status_code: [200, 503]
-    timeout: 15
-  register: app_health
-  retries: 12
-  delay: 5
-  until: app_health.status in [200, 503]
+  block:
+    - name: Wait for /health (200 or 503 while dependencies start)
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:3000/health"
+        method: GET
+        status_code: [200, 503]
+        timeout: 15
+      register: app_health
+      retries: 12
+      delay: 5
+      until: app_health.status in [200, 503]
+
+  rescue:
+    - name: Collect docker compose logs after health failure
+      ansible.builtin.command:
+        cmd: docker compose logs --tail 200
+        chdir: "{{ app_dir }}"
+      register: compose_logs
+      changed_when: false
+
+    - name: Fail with compose log excerpt
+      ansible.builtin.fail:
+        msg: >-
+          Bot /health did not become ready in time.
+          {{ compose_logs.stdout | default('', true) }}
