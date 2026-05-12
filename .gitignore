@@ -4,8 +4,10 @@
 # Build
 /dist
 
-# Env (секреты)
+# Env и любые варианты с секретами (пример без секретов можно исключить: !.env.example)
 .env
+.env.*
+!.env.example
 .env.local
 .env.*.local
 
@@ -18,5 +20,34 @@ Thumbs.db
 .idea
 .vscode
 
-# Ansible (секреты)
+# Ansible: пароли в inventory, временные ключи CI, retry
 ansible/inventory.ini
+ansible/inventory.*.ini
+/inventory.ini
+/inventory.*.ini
+.tmp-keys/
+*.retry
+.ansible/
+ansible/host_vars/
+ansible/group_vars/**/local.yml
+
+# Ключи и материалы для входа (не путать с открытыми .pub в документации)
+*.pem
+*.p12
+*.pfx
+*.ppk
+/id_rsa
+/id_ed25519
+/id_ecdsa
+**/vault_pass.txt
+**/vault_password.txt
+ansible/**/secrets.yml
+ansible/**/secrets.yaml
+
+# Docker: локальные оверрайды часто с паролями / портами
+docker-compose.override.yml
+docker-compose.*.local.yml
+
+# Облачные / API ключи в JSON (если положите в репозиторий по ошибке)
+*credentials*.json
+*service-account*.json

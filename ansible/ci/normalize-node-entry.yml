@@ -1,0 +1,67 @@
+---
+# Ожидается элемент цикла `item`: {"address","password"} — та же семантика, что у MASTER_IP.
+- name: Require node mapping with address and password
+  ansible.builtin.assert:
+    that:
+      - item is mapping
+      - item.address | default('', true) | trim | length > 0
+      - item.password | default('', true) | trim | length > 0
+    fail_msg: >-
+      Каждый элемент NODE_IPS — JSON-объект с непустыми address и password.
+
+- name: Extract node address and password
+  ansible.builtin.set_fact:
+    _ci_host_candidate: "{{ item.address | default('', true) | trim }}"
+    ci_node_password: "{{ item.password | default('', true) | trim }}"
+
+- name: Normalize host candidate (scheme, quotes)
+  ansible.builtin.set_fact:
+    _n: >-
+      {{
+        _ci_host_candidate
+        | regex_replace('(?i)^https?://', '')
+        | regex_replace('[\"\']', '')
+        | trim
+      }}
+
+- name: Strip leading/trailing slashes from host candidate
+  ansible.builtin.set_fact:
+    _n: >-
+      {{
+        _n
+        | regex_replace('^/+', '')
+        | regex_replace('/+$', '')
+        | trim
+      }}
+
+- name: Drop trailing TCP port suffix (:digits)
+  ansible.builtin.set_fact:
+    _n: "{{ _n | regex_replace(':[0-9]{1,5}$', '') | trim }}"
+
+- name: Resolve parseable node host (IPv4, hostname, or first sane token)
+  ansible.builtin.set_fact:
+    ci_node_resolved: >-
+      {% if _n | regex_search('^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$') %}
+      {{ _n }}
+      {% elif _n is match('^[-0-9A-Za-z_.]+$') %}
+      {{ _n }}
+      {% elif _n | regex_search('(?:[0-9]{1,3}\.){3}[0-9]{1,3}') %}
+      {{ _n | regex_search('(?:[0-9]{1,3}\.){3}[0-9]{1,3}') }}
+      {% else %}
+      {{ _n | regex_search('[-0-9A-Za-z_.]+') | default('', true) }}
+      {% endif %}
+
+- name: Normalize resolved node host whitespace
+  ansible.builtin.set_fact:
+    ci_node_resolved: "{{ ci_node_resolved | trim }}"
+
+- name: Validate resolved node host
+  ansible.builtin.assert:
+    that:
+      - ci_node_resolved | length > 0
+      - ci_node_resolved is match('^[-0-9A-Za-z_.]+$')
+    fail_msg: NODE_IPS entry address is not parseable ({{ item.address | default('') }})
+
+- name: Append normalized node to inventory list
+  ansible.builtin.set_fact:
+    ci_inventory_nodes: "{{ ci_inventory_nodes + [{'host': ci_node_resolved, 'password': ci_node_password}] }}"

@@ -2,6 +2,9 @@
 master_host ansible_host={{ ci_master_host }} ansible_user=root ansible_password='{{ ci_master_password }}'
 
 [nodes]
+{% for n in ci_inventory_nodes | default([]) %}
+node{{ loop.index }} ansible_host={{ n.host }} ansible_user=root ansible_password='{{ n.password }}'
+{% endfor %}
 
 [all:vars]
 ansible_connection=ssh

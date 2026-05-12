@@ -4,6 +4,7 @@
 #
 # Env:
 #   MASTER_IP — JSON object {"address","password"} (both required, non-empty)
+#   NODE_IPS — optional JSON array [{"address","password"}, ...]; иначе [nodes] пустой
 #   OUTPUT_PATH — optional absolute path; default ../inventory.ini (ansible root)
 
 - name: Materialize inventory.ini for CI
@@ -111,6 +112,43 @@
     - name: Alias master password for template
       ansible.builtin.set_fact:
         ci_master_password: "{{ _ci_master_password | default('') }}"
+
+    - name: Read NODE_IPS from environment
+      ansible.builtin.set_fact:
+        _node_ips_raw: "{{ lookup('env', 'NODE_IPS', default='') | trim }}"
+
+    - name: Inventory nodes list empty when NODE_IPS unset
+      ansible.builtin.set_fact:
+        ci_inventory_nodes: []
+      when: _node_ips_raw | length == 0
+
+    - name: Parse NODE_IPS JSON
+      ansible.builtin.set_fact:
+        _node_ips_list: "{{ _node_ips_raw | from_json }}"
+      when: _node_ips_raw | length > 0
+
+    - name: Require NODE_IPS to be a JSON array
+      ansible.builtin.assert:
+        that:
+          - _node_ips_list is sequence
+          - _node_ips_list is not string
+          - _node_ips_list is not mapping
+        fail_msg: >-
+          NODE_IPS must be a JSON array of objects,
+          e.g. [{"address":"10.0.0.2","password":"root-pass"}]
+      when: _node_ips_raw | length > 0
+
+    - name: Init nodes list before normalization loop
+      ansible.builtin.set_fact:
+        ci_inventory_nodes: []
+      when: _node_ips_raw | length > 0
+
+    - name: Normalize each NODE_IPS entry
+      ansible.builtin.include_tasks: normalize-node-entry.yml
+      loop: "{{ _node_ips_list }}"
+      loop_control:
+        label: "{{ item.address | default('?') }}"
+      when: _node_ips_raw | length > 0
 
     - name: Write inventory.ini
       ansible.builtin.template:

@@ -28,7 +28,7 @@
 
 Workflow **[`.github/workflows/bootstrap-infra.yml`](../.github/workflows/bootstrap-infra.yml)** (ручной запуск): **`MASTER_IP`**, **`DOMAIN_NAME`**, **`SSH_PUBLIC_KEY`**, **`SSH_PRIVATE_KEY`**, **`ANSIBLE_SSH_USERNAME=root`**. Перед плейбуком ставятся коллекции **`ansible.posix`**, **`community.general`**.
 
-Локально: см. **[`AGENT_INFRA.md`](AGENT_INFRA.md)** — **`MASTER_IP`**, inventory, Ansible из WSL.
+Локально: см. **[`AGENT_INFRA.md`](AGENT_INFRA.md)** — **`MASTER_IP`**, inventory, Ansible из WSL. Одним шагом (inventory + bootstrap + ping): **`bash scripts/deploy_bootstrap.sh`** из корня репозитория. Полный первый запуск (bootstrap, затем бот): **`bash scripts/deploy_bootstrap_then_bot.sh`** (см. **[`DEPLOY_BOT.md`](DEPLOY_BOT.md)** по переменным для бота и опции **`--build`**).
 
 ## Запуск вручную
 

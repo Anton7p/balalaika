@@ -35,3 +35,7 @@ CI собирает образ приложения, пушит в **GHCR**, з�
 ## Локальный запуск
 
 См. **[`AGENT_INFRA.md`](AGENT_INFRA.md)** (WSL, **`MASTER_IP`**, inventory). Нужно задать **`APP_IMAGE`** (например тег только что собранного образа) и остальные переменные, как в workflow.
+
+Скрипт **`scripts/deploy_bot.sh`**: читает **`.env`**, собирает **`inventory.ini`**, гоняет **`ansible/bot/deploy-app.yml`**, затем SSH-проверку стека (`scripts/check-bot-stack-remote.sh`). Образ: задайте **`APP_IMAGE`** или запустите **`bash scripts/deploy_bot.sh --build`** (нужны **docker**, **`GITHUB_TOKEN`**, **`GITHUB_ACTOR`**). Из PowerShell безопаснее вызывать через **WSL** и не подставлять **`$(git …)`** в двойных кавычках — иначе тег образа может обрезаться.
+
+Цепочка «с нуля» (сначала **[`BOOTSTRAP.md`](BOOTSTRAP.md)**, потом бот): **`bash scripts/deploy_bootstrap_then_bot.sh`** или с образом из локальной сборки: **`bash scripts/deploy_bootstrap_then_bot.sh --build`**.
