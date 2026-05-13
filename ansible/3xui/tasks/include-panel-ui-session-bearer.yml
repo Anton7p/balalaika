@@ -1,0 +1,73 @@
+---
+# Входные переменные: xui_panel_origin (без завершающего /), xui_panel_auth_label (текст для fail_msg).
+# Учётные данные: xui_vpn_username, xui_vpn_password.
+# Результат: xui_ui_session_bearer — строка API token.
+# Cookie: templates/common/cookie_header.j2
+- name: Fetch CSRF token ({{ xui_panel_auth_label }})
+  ansible.builtin.uri:
+    url: "{{ xui_panel_origin | trim }}/panel/csrf-token"
+    method: GET
+    timeout: 60
+  register: xui_tpl_csrf_res
+
+- name: Require CSRF ({{ xui_panel_auth_label }})
+  ansible.builtin.assert:
+    that:
+      - xui_tpl_csrf_res.json is defined
+      - xui_tpl_csrf_res.json.obj is defined
+      - (xui_tpl_csrf_res.json.obj | string | length) > 0
+    fail_msg: "{{ xui_panel_auth_label }} did not return CSRF token (csrf-token)"
+
+- name: Log in to panel UI ({{ xui_panel_auth_label }})
+  ansible.builtin.uri:
+    url: "{{ xui_panel_origin | trim }}/panel/login"
+    method: POST
+    body_format: form-urlencoded
+    body:
+      username: "{{ xui_vpn_username }}"
+      password: "{{ xui_vpn_password }}"
+    headers:
+      X-CSRF-Token: "{{ xui_tpl_csrf_res.json.obj }}"
+      X-Requested-With: XMLHttpRequest
+      Accept: application/json
+    status_code: 200
+    timeout: 60
+  register: xui_tpl_login_res
+  no_log: true
+
+- name: Assert panel UI login succeeded ({{ xui_panel_auth_label }})
+  ansible.builtin.assert:
+    that:
+      - xui_tpl_login_res.json.success | default(false)
+    fail_msg: "{{ xui_panel_auth_label }} login failed: {{ xui_tpl_login_res.json.msg | default('unknown') }}"
+
+- name: Build Cookie header from login Set-Cookie ({{ xui_panel_auth_label }})
+  ansible.builtin.set_fact:
+    xui_tpl_session_cookie: "{{ lookup('template', 'common/cookie_header.j2', template_vars={'xui_cookie_jar': xui_tpl_login_res.cookies | default({}) }) | trim }}"
+  no_log: true
+
+- name: Read Bearer API token via UI session ({{ xui_panel_auth_label }})
+  ansible.builtin.uri:
+    url: "{{ xui_panel_origin | trim }}/panel/panel/setting/getApiToken"
+    method: GET
+    headers:
+      Accept: application/json
+      Cookie: "{{ xui_tpl_session_cookie }}"
+    status_code: 200
+    timeout: 60
+  register: xui_tpl_token_res
+  no_log: true
+
+- name: Assert panel returned API token ({{ xui_panel_auth_label }})
+  ansible.builtin.assert:
+    that:
+      - xui_tpl_token_res.json is defined
+      - xui_tpl_token_res.json.success | default(false)
+      - xui_tpl_token_res.json.obj is defined
+      - (xui_tpl_token_res.json.obj | string | length) > 0
+    fail_msg: "{{ xui_panel_auth_label }} getApiToken failed: {{ xui_tpl_token_res.json.msg | default('unknown') }}"
+
+- name: Expose UI session bearer ({{ xui_panel_auth_label }})
+  ansible.builtin.set_fact:
+    xui_ui_session_bearer: "{{ xui_tpl_token_res.json.obj | trim }}"
+  no_log: true

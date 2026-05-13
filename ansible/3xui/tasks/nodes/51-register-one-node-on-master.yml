@@ -1,0 +1,70 @@
+---
+# sync_node, xui_master_origin, xui_master_bearer, xui_nodes_list_res — из вызывающего 50-register-on-master.yml
+- name: Resolve existing master node id for this sync entry
+  ansible.builtin.set_fact:
+    xui_sync_matched_id: >-
+      {% set ns = namespace(mid='') %}
+      {% for r in xui_nodes_list_res.json.obj | default([]) %}
+      {% set r_scheme = r.scheme | default('https', true) %}
+      {% if (ns.mid | length) == 0
+            and r.address | default('', true) | string == (sync_node.address | string)
+            and (r.port | default(0) | int) == (sync_node.port | int)
+            and (r_scheme | string) == (sync_node.scheme | string) %}
+      {% set ns.mid = r.id | string %}
+      {% endif %}
+      {% endfor %}
+      {{ ns.mid }}
+
+- name: Add node on central master
+  when: xui_sync_matched_id | length == 0
+  ansible.builtin.uri:
+    url: "{{ xui_master_origin }}/panel/panel/api/nodes/add"
+    method: POST
+    body_format: json
+    body:
+      name: "{{ sync_node.name }}"
+      remark: "{{ sync_node.remark | default('ansible', true) }}"
+      scheme: "{{ sync_node.scheme }}"
+      address: "{{ sync_node.address }}"
+      port: "{{ sync_node.port | int }}"
+      basePath: "{{ sync_node.basePath | default('/', true) }}"
+      apiToken: "{{ sync_node.apiToken }}"
+      enable: true
+    headers:
+      Authorization: "Bearer {{ xui_master_bearer }}"
+      Accept: application/json
+    status_code: 200
+    timeout: 90
+  register: xui_master_node_sync_res
+  no_log: true
+  failed_when:
+    - not (xui_master_node_sync_res.skipped | default(false) | bool)
+    - xui_master_node_sync_res.json is defined
+    - not (xui_master_node_sync_res.json.success | default(false))
+
+- name: Update node on central master
+  when: xui_sync_matched_id | length > 0
+  ansible.builtin.uri:
+    url: "{{ xui_master_origin }}/panel/panel/api/nodes/update/{{ xui_sync_matched_id }}"
+    method: POST
+    body_format: json
+    body:
+      name: "{{ sync_node.name }}"
+      remark: "{{ sync_node.remark | default('ansible', true) }}"
+      scheme: "{{ sync_node.scheme }}"
+      address: "{{ sync_node.address }}"
+      port: "{{ sync_node.port | int }}"
+      basePath: "{{ sync_node.basePath | default('/', true) }}"
+      apiToken: "{{ sync_node.apiToken }}"
+      enable: true
+    headers:
+      Authorization: "Bearer {{ xui_master_bearer }}"
+      Accept: application/json
+    status_code: 200
+    timeout: 90
+  register: xui_master_node_sync_res
+  no_log: true
+  failed_when:
+    - not (xui_master_node_sync_res.skipped | default(false) | bool)
+    - xui_master_node_sync_res.json is defined
+    - not (xui_master_node_sync_res.json.success | default(false))

@@ -1,4 +1,10 @@
 ---
+# Play vars vs vars_files merge can leave xui_publish_host at panel default (127.0.0.1);
+# master must reach the node API over the network — always bind like defaults/xui_node_publish_host.
+- name: Set Docker publish host for node panel
+  ansible.builtin.set_fact:
+    xui_publish_host: "{{ xui_node_publish_host | default('0.0.0.0') | trim }}"
+
 - name: Ensure panel install directory exists
   ansible.builtin.file:
     path: "{{ item }}"

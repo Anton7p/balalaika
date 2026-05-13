@@ -1,0 +1,2 @@
+{# Собрать заголовок Cookie из словаря ответа ansible.builtin.uri (поле cookies). #}
+{% for k, v in (xui_cookie_jar | default({})).items() %}{{ k }}={{ v }}{% if not loop.last %}; {% endif %}{% endfor %}

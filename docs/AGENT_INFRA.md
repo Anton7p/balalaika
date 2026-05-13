@@ -14,6 +14,10 @@
 
 На WSL при проверке репозитория: **Python 3.12.3**, **`ansible-playbook` [core 2.20.4]** (`ansible-playbook --version`). У себя сверяйте `python3 --version` и `ansible-playbook --version`. Если Ansible не установлен: `sudo apt update && sudo apt install -y ansible` (или `pip install --user "ansible>=9"`).
 
+### 3x-ui: второй play панели на `localhost`
+
+Плейбук **`ansible/3xui/deploy-panel.yml`** после задач на **`master`** запускает play на **`localhost`**: HTTPS к **`DOMAIN_NAME`**, UI-login и REST (inbound). Удобно запускать из **WSL/Linux**, чтобы были **`python3`** или **`openssl`** для генерации shortId Reality; если их нет, используется встроенный **`lookup('password', …)`** Ansible (на чистом Windows без WSL первый шаг shell с **`/bin/bash`** уйдёт в fallback — см. задачи в **`tasks/panel/50-api-inbound.yml`**).
+
 Сбор **`inventory.ini`** из **`MASTER_IP`** (JSON в переменной окружения, не коммитить значение):
 
 ```bash

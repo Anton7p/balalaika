@@ -20,7 +20,7 @@
       {{
         _ci_host_candidate
         | regex_replace('(?i)^https?://', '')
-        | regex_replace('[\"\']', '')
+        | regex_replace('[\"' ~ "'" ~ ']', '')
         | trim
       }}
 

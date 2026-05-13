@@ -9,105 +9,48 @@
       apiToken: "{{ hostvars[item].xui_node_api_token }}"
       scheme: "{{ xui_node_scheme }}"
       port: "{{ xui_node_http_port | int }}"
-      basePath: "/"
+      basePath: "{{ xui_node_panel_base_path }}"
       remark: ansible-node
   loop: "{{ groups['nodes'] }}"
 
-- name: Register or update nodes on central master (embedded Python)
-  ansible.builtin.shell:
-    executable: /bin/bash
-    cmd: |
-      python3 <<'PY'
-      {% raw %}
-      import http.cookiejar
-      import json
-      import os
-      import ssl
-      import urllib.parse
-      import urllib.request
+- name: Set master panel HTTPS origin
+  ansible.builtin.set_fact:
+    xui_master_origin: "https://{{ xui_domain_name | trim }}"
 
-      origin = os.environ["XUI_ORIGIN"].rstrip("/")
-      user = os.environ["XUI_ADMIN_USER"]
-      password = os.environ["XUI_ADMIN_PASS"]
-      nodes_in = json.loads(os.environ["XUI_NODES_JSON"])
+- name: Obtain master panel API bearer via UI login
+  ansible.builtin.include_tasks: tasks/include-panel-ui-session-bearer.yml
+  vars:
+    xui_panel_origin: "{{ xui_master_origin }}"
+    xui_panel_auth_label: "master HTTPS panel"
 
-      ctx = ssl.create_default_context()
-      cj = http.cookiejar.CookieJar()
-      opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-
-      csrf = json.loads(opener.open(origin + "/panel/csrf-token", timeout=60).read().decode("utf-8"))["obj"]
-      login_body = urllib.parse.urlencode({"username": user, "password": password}).encode("utf-8")
-      lr = urllib.request.Request(
-          origin + "/panel/login",
-          data=login_body,
-          method="POST",
-          headers={
-              "Content-Type": "application/x-www-form-urlencoded",
-              "X-CSRF-Token": csrf,
-              "X-Requested-With": "XMLHttpRequest",
-              "Accept": "application/json",
-          },
-      )
-      b_login = json.loads(opener.open(lr, timeout=60).read().decode("utf-8"))
-      if not b_login.get("success"):
-          raise SystemExit("login failed: " + str(b_login.get("msg")))
-
-      tok_raw = opener.open(origin + "/panel/panel/setting/getApiToken", timeout=60).read().decode("utf-8")
-      bearer = json.loads(tok_raw)["obj"]
-
-      def jreq(method, url, payload=None):
-          headers = {"Authorization": "Bearer " + bearer, "Accept": "application/json"}
-          data = None
-          if payload is not None:
-              data = json.dumps(payload).encode("utf-8")
-              headers["Content-Type"] = "application/json"
-          r = urllib.request.Request(url, data=data, method=method, headers=headers)
-          with urllib.request.urlopen(r, context=ctx, timeout=90) as resp:
-              return json.loads(resp.read().decode("utf-8"))
-
-      listed = jreq("GET", origin + "/panel/panel/api/nodes/list")
-      existing = listed.get("obj") or []
-      if not isinstance(existing, list):
-          existing = []
-
-      def match(n, row):
-          return (
-              isinstance(row, dict)
-              and row.get("address") == n["address"]
-              and int(row.get("port") or 0) == int(n["port"])
-              and (row.get("scheme") or "https") == n["scheme"]
-          )
-
-      for n in nodes_in:
-          row = next((r for r in existing if match(n, r)), None)
-          payload = {
-              "name": n["name"],
-              "remark": n.get("remark") or "ansible",
-              "scheme": n["scheme"],
-              "address": n["address"],
-              "port": int(n["port"]),
-              "basePath": n.get("basePath") or "/",
-              "apiToken": n["apiToken"],
-              "enable": True,
-          }
-          if row is None:
-              out = jreq("POST", origin + "/panel/panel/api/nodes/add", payload)
-              if not out.get("success"):
-                  raise SystemExit("nodes/add failed: " + str(out.get("msg")))
-              print("added", n["name"], n["address"])
-          else:
-              nid = int(row["id"])
-              out = jreq("POST", origin + "/panel/panel/api/nodes/update/" + str(nid), payload)
-              if not out.get("success"):
-                  raise SystemExit("nodes/update failed: " + str(out.get("msg")))
-              print("updated", n["name"], n["address"])
-      {% endraw %}
-      PY
-  register: xui_sync_nodes_cmd
-  changed_when: true
+- name: Set master bearer for nodes API
+  ansible.builtin.set_fact:
+    xui_master_bearer: "{{ xui_ui_session_bearer }}"
   no_log: true
-  environment:
-    XUI_ORIGIN: "https://{{ xui_domain_name }}"
-    XUI_ADMIN_USER: "{{ xui_vpn_username }}"
-    XUI_ADMIN_PASS: "{{ xui_vpn_password }}"
-    XUI_NODES_JSON: "{{ xui_nodes_register | to_json }}"
+
+- name: List existing nodes on master panel
+  ansible.builtin.uri:
+    url: "{{ xui_master_origin }}/panel/panel/api/nodes/list"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ xui_master_bearer }}"
+      Accept: application/json
+    status_code: 200
+    timeout: 90
+  register: xui_nodes_list_res
+  no_log: true
+
+- name: Assert nodes list from master
+  ansible.builtin.assert:
+    that:
+      - xui_nodes_list_res.json is defined
+      - xui_nodes_list_res.json.success | default(false)
+      - xui_nodes_list_res.json.obj is defined
+    fail_msg: "master nodes/list failed: {{ xui_nodes_list_res.json.msg | default('unknown') }}"
+
+- name: Register or update each node on master panel
+  ansible.builtin.include_tasks: tasks/nodes/51-register-one-node-on-master.yml
+  loop: "{{ xui_nodes_register }}"
+  loop_control:
+    loop_var: sync_node
+    label: "{{ sync_node.name }} {{ sync_node.address }}"

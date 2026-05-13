@@ -1,123 +1,168 @@
 ---
-- name: Configure inbound on public panel URL (controller, embedded Python)
-  ansible.builtin.shell:
-    executable: /bin/bash
-    cmd: |
-      python3 <<'PY'
-      {% raw %}
-      import http.cookiejar
-      import json
-      import os
-      import secrets
-      import ssl
-      import urllib.parse
-      import urllib.request
+# Публичный HTTPS origin панели (localhost play на контроллере).
+- name: Set panel public HTTPS origin
+  ansible.builtin.set_fact:
+    xui_panel_public_origin: "https://{{ xui_domain_name | trim }}"
 
-      origin = os.environ["XUI_ORIGIN"].rstrip("/")
-      user = os.environ["XUI_ADMIN_USER"]
-      password = os.environ["XUI_ADMIN_PASS"]
-      inbound_remark = os.environ["XUI_INBOUND_REMARK"]
-      port = int(os.environ["XUI_INBOUND_PORT"])
-      dest = os.environ["XUI_REALITY_DEST"]
-      snames = json.loads(os.environ["XUI_REALITY_SNAMES_JSON"])
-      ctx = ssl.create_default_context()
-      cj = http.cookiejar.CookieJar()
-      opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+- name: Obtain panel API bearer via UI login (public URL)
+  ansible.builtin.include_tasks: tasks/include-panel-ui-session-bearer.yml
+  vars:
+    xui_panel_origin: "{{ xui_panel_public_origin }}"
+    xui_panel_auth_label: "master public panel (inbound API)"
 
-      csrf = json.loads(opener.open(origin + "/panel/csrf-token", timeout=60).read().decode("utf-8"))["obj"]
-      login_body = urllib.parse.urlencode({"username": user, "password": password}).encode("utf-8")
-      lr = urllib.request.Request(
-          origin + "/panel/login",
-          data=login_body,
-          method="POST",
-          headers={
-              "Content-Type": "application/x-www-form-urlencoded",
-              "X-CSRF-Token": csrf,
-              "X-Requested-With": "XMLHttpRequest",
-              "Accept": "application/json",
-          },
-      )
-      b_login = json.loads(opener.open(lr, timeout=60).read().decode("utf-8"))
-      if not b_login.get("success"):
-          raise SystemExit("login failed: " + str(b_login.get("msg")))
-
-      tok_raw = opener.open(origin + "/panel/panel/setting/getApiToken", timeout=60).read().decode("utf-8")
-      bearer = json.loads(tok_raw)["obj"]
-
-      def breq(path, payload=None, method=None):
-          if method is None:
-              method = "POST" if payload is not None else "GET"
-          h = {"Authorization": "Bearer " + bearer, "Accept": "application/json"}
-          data = None
-          if payload is not None:
-              data = json.dumps(payload).encode("utf-8")
-              h["Content-Type"] = "application/json"
-          r = urllib.request.Request(origin + path, data=data, method=method, headers=h)
-          with urllib.request.urlopen(r, context=ctx, timeout=90) as resp:
-              return json.loads(resp.read().decode("utf-8"))
-
-      listed = breq("/panel/panel/api/inbounds/list")
-      objs = listed.get("obj") or []
-      if isinstance(objs, list):
-          for ib in objs:
-              if isinstance(ib, dict) and ib.get("remark") == inbound_remark:
-                  print("already_have_inbound_skip")
-                  raise SystemExit(0)
-
-      cert = breq("/panel/panel/api/server/getNewX25519Cert")
-      obj = cert.get("obj")
-      if isinstance(obj, str):
-          obj = json.loads(obj)
-      priv = obj["privateKey"]
-      short_id = secrets.token_hex(8)
-      stream = {
-          "network": "tcp",
-          "security": "reality",
-          "realitySettings": {
-              "show": False,
-              "xver": 0,
-              "dest": dest,
-              "serverNames": snames,
-              "privateKey": priv,
-              "minClientVer": "",
-              "maxClientVer": "",
-              "maxTimediff": 0,
-              "shortIds": [short_id],
-          },
-      }
-      settings = {"clients": [], "decryption": "none", "fallbacks": []}
-      sniff = {"enabled": True, "destOverride": ["http", "tls", "quic"], "metadataOnly": False}
-      body = {
-          "up": 0,
-          "down": 0,
-          "total": 0,
-          "remark": inbound_remark,
-          "enable": True,
-          "expiryTime": 0,
-          "listen": "",
-          "port": port,
-          "protocol": "vless",
-          "settings": json.dumps(settings),
-          "streamSettings": json.dumps(stream),
-          "tag": "",
-          "sniffing": json.dumps(sniff),
-      }
-      out = breq("/panel/panel/api/inbounds/add", payload=body, method="POST")
-      if not out.get("success"):
-          raise SystemExit("inbound add failed: " + str(out.get("msg")))
-      print("inbound_created")
-      {% endraw %}
-      PY
-  delegate_to: localhost
-  run_once: true
-  register: xui_panel_inbound_api
-  changed_when: "'inbound_created' in (xui_panel_inbound_api.stdout | default(''))"
+- name: List inbounds on panel (Bearer)
+  ansible.builtin.uri:
+    url: "{{ xui_panel_public_origin }}/panel/panel/api/inbounds/list"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ xui_ui_session_bearer }}"
+      Accept: application/json
+    status_code: 200
+    timeout: 90
+  register: xui_ib_list_res
   no_log: true
-  environment:
-    XUI_ORIGIN: "https://{{ xui_domain_name }}"
-    XUI_ADMIN_USER: "{{ xui_vpn_username }}"
-    XUI_ADMIN_PASS: "{{ xui_vpn_password }}"
-    XUI_INBOUND_REMARK: "{{ xui_inbound_remark }}"
-    XUI_INBOUND_PORT: "{{ xui_inbound_port | string }}"
-    XUI_REALITY_DEST: "{{ xui_reality_dest }}"
-    XUI_REALITY_SNAMES_JSON: "{{ xui_reality_server_names | to_json }}"
+
+- name: Assert inbounds list succeeded
+  ansible.builtin.assert:
+    that:
+      - xui_ib_list_res.json is defined
+      - xui_ib_list_res.json.success | default(false)
+    fail_msg: "inbounds/list failed: {{ xui_ib_list_res.json.msg | default('unknown') }}"
+
+- name: Count inbounds with target remark (idempotence)
+  ansible.builtin.set_fact:
+    xui_inbound_matching: "{{ xui_ib_list_res.json.obj | default([]) | selectattr('remark', 'defined') | selectattr('remark', 'equalto', xui_inbound_remark) | list | length }}"
+
+- name: Generate Reality shortId (16 hex chars on controller)
+  when: (xui_inbound_matching | int) == 0
+  block:
+    - name: Prefer python3, else openssl (Linux/macOS/WSL)
+      ansible.builtin.shell: |
+        set -eu
+        if command -v python3 >/dev/null 2>&1; then
+          python3 -c "import secrets; print(secrets.token_hex(8))"
+        elif command -v openssl >/dev/null 2>&1; then
+          openssl rand -hex 8
+        else
+          exit 47
+        fi
+      args:
+        executable: /bin/bash
+      register: xui_short_id_cmd
+      changed_when: false
+
+    - name: Set shortId from shell output
+      ansible.builtin.set_fact:
+        xui_reality_short_id_hex: "{{ xui_short_id_cmd.stdout | trim }}"
+
+  rescue:
+    - name: Fallback shortId (Ansible password lookup, no python3/openssl)
+      ansible.builtin.set_fact:
+        xui_reality_short_id_hex: "{{ lookup('password', '/dev/null', length=16, chars='0123456789abcdef') }}"
+
+- name: Assert Reality shortId is 16 hex chars
+  ansible.builtin.assert:
+    that:
+      - xui_reality_short_id_hex is defined
+      - (xui_reality_short_id_hex | string | length) == 16
+      - (xui_reality_short_id_hex | string | lower) is match('^[0-9a-f]{16}$')
+    fail_msg: >-
+      Could not build 16-char hex Reality shortId on controller.
+      Install python3 or openssl, or run Ansible from WSL/Linux (see docs/AGENT_INFRA.md).
+  when: (xui_inbound_matching | int) == 0
+
+- name: Fetch new X25519 cert for Reality (Bearer)
+  ansible.builtin.uri:
+    url: "{{ xui_panel_public_origin }}/panel/panel/api/server/getNewX25519Cert"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ xui_ui_session_bearer }}"
+      Accept: application/json
+    status_code: 200
+    timeout: 90
+  register: xui_newcert_res
+  no_log: true
+  when: (xui_inbound_matching | int) == 0
+
+- name: Assert getNewX25519Cert succeeded
+  ansible.builtin.assert:
+    that:
+      - xui_newcert_res.json is defined
+      - xui_newcert_res.json.success | default(false)
+      - xui_newcert_res.json.obj is defined
+    fail_msg: "getNewX25519Cert failed: {{ xui_newcert_res.json.msg | default('unknown') }}"
+  when: (xui_inbound_matching | int) == 0
+
+- name: Parse getNewX25519Cert payload (obj may be JSON string or object)
+  ansible.builtin.set_fact:
+    xui_cert_obj: "{{ xui_newcert_res.json.obj | from_json if (xui_newcert_res.json.obj is string) else xui_newcert_res.json.obj }}"
+  when: (xui_inbound_matching | int) == 0
+
+- name: Assert new X25519 cert contains privateKey
+  ansible.builtin.assert:
+    that:
+      - xui_cert_obj.privateKey is defined
+      - (xui_cert_obj.privateKey | string | length) > 0
+    fail_msg: getNewX25519Cert returned no privateKey
+  when: (xui_inbound_matching | int) == 0
+
+- name: Build streamSettings JSON string for VLESS+REALITY
+  ansible.builtin.set_fact:
+    xui_stream_settings_str: "{{ xui_stream_inner | to_json }}"
+  vars:
+    xui_stream_inner:
+      network: tcp
+      security: reality
+      realitySettings:
+        show: false
+        xver: 0
+        dest: "{{ xui_reality_dest }}"
+        serverNames: "{{ xui_reality_server_names }}"
+        privateKey: "{{ xui_cert_obj.privateKey }}"
+        minClientVer: ""
+        maxClientVer: ""
+        maxTimediff: 0
+        shortIds:
+          - "{{ xui_reality_short_id_hex }}"
+  when: (xui_inbound_matching | int) == 0
+
+- name: Create VLESS+REALITY inbound on panel (Bearer)
+  ansible.builtin.uri:
+    url: "{{ xui_panel_public_origin }}/panel/panel/api/inbounds/add"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ xui_ui_session_bearer }}"
+      Accept: application/json
+    body_format: json
+    body:
+      up: 0
+      down: 0
+      total: 0
+      remark: "{{ xui_inbound_remark }}"
+      enable: true
+      expiryTime: 0
+      listen: ""
+      port: "{{ xui_inbound_port | int }}"
+      protocol: vless
+      settings: "{{ {'clients': [], 'decryption': 'none', 'fallbacks': []} | to_json }}"
+      streamSettings: "{{ xui_stream_settings_str }}"
+      tag: ""
+      sniffing: "{{ {'enabled': true, 'destOverride': ['http', 'tls', 'quic'], 'metadataOnly': false} | to_json }}"
+    status_code: 200
+    timeout: 90
+  register: xui_inb_create_res
+  no_log: true
+  failed_when:
+    - not (xui_inb_create_res.skipped | default(false) | bool)
+    - xui_inb_create_res.json is defined
+    - not (xui_inb_create_res.json.success | default(false))
+  when: (xui_inbound_matching | int) == 0
+
+- name: Record inbound reconcile result (compat with former shell register)
+  ansible.builtin.set_fact:
+    xui_panel_inbound_api:
+      stdout: "{{ 'inbound_created' if not (xui_inb_create_res.skipped | default(false) | bool) else 'already_have_inbound_skip' }}"
+  changed_when:
+    - not (xui_inb_create_res.skipped | default(false) | bool)
+    - xui_inb_create_res.json is defined
+    - (xui_inb_create_res.json.success | default(false))

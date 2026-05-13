@@ -19,9 +19,10 @@
                    playbook_dir | dirname ~ '/inventory.ini') }}
 
   tasks:
+    # Native Jinja coerces JSON-shaped env values to dict; keep a real string for .startswith / from_json.
     - name: Read MASTER_IP from environment
       ansible.builtin.set_fact:
-        _ci_master_raw: "{{ lookup('env', 'MASTER_IP', default='') | trim }}"
+        _ci_master_raw: "{{ lookup('env', 'MASTER_IP', default='') | trim | string }}"
 
     - name: Require MASTER_IP
       ansible.builtin.assert:
@@ -65,7 +66,7 @@
           {{
             _ci_host_candidate
             | regex_replace('(?i)^https?://', '')
-            | regex_replace('[\"\']', '')
+            | regex_replace('[\"' ~ "'" ~ ']', '')
             | trim
           }}
 
@@ -115,7 +116,7 @@
 
     - name: Read NODE_IPS from environment
       ansible.builtin.set_fact:
-        _node_ips_raw: "{{ lookup('env', 'NODE_IPS', default='') | trim }}"
+        _node_ips_raw: "{{ lookup('env', 'NODE_IPS', default='') | trim | string }}"
 
     - name: Inventory nodes list empty when NODE_IPS unset
       ansible.builtin.set_fact:

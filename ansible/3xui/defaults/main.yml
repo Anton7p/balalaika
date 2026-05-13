@@ -5,6 +5,8 @@ xui_install_dir: /opt/infrastructure/panel
 xui_container_name: xui_app
 xui_compose_project: panel
 xui_web_base_path: /panel/
+# Base path master uses when calling node panel API (Nodes). Align with webBasePath on nodes (20-admin-cli).
+xui_node_panel_base_path: "{{ xui_web_base_path }}"
 xui_panel_http_port: 2053
 xui_publish_host: 127.0.0.1
 # Published Docker port on nodes (master uses 127.0.0.1 only).

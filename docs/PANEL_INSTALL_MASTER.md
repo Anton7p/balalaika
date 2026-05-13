@@ -1,59 +1,48 @@
-# Как ставим панель 3x-ui на master
+# Установка панели 3x-ui на master (Ansible)
 
-Целевая версия — **v3.0.1** (см. [`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md)). Секрет **`MASTER_IP`** даёт Ansible доступ на хост; сама установка панели будет реализована в **`ansible/3xui/tasks/panel/`** (сейчас там заглушка). Запуск из CI: workflow **[`deploy-3xui.yml`](../.github/workflows/deploy-3xui.yml)** с **`target: panel`** (или **`all`**).
+Целевая версия — **v3.0.1** (см. [`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md)). Автоматизация в репозитории уже реализована: Docker Compose на master, nginx перед панелью, UFW, CLI-учётка, затем на **контроллере** (localhost play) — создание inbound по HTTPS API.
 
----
-
-## 1. Хост готов к панели
-
-Один раз (или после переустановки сервера): прогон **bootstrap** на master — **Docker**, сеть, **nginx + certbot** под домен, SSH и ключи. Типовой деплой 3x-ui в Docker опирается на уже поднятый Docker; TLS часто завершает nginx перед контейнером.
+CI: workflow **[`deploy-3xui.yml`](../.github/workflows/deploy-3xui.yml)** с **`target: panel`** или **`all`**.
 
 ---
 
-## 2. Фиксируем версию артефакта
+## Предварительно
 
-В плейбуке или шаблоне **compose** явно указываем образ/тег **3x-ui v3.0.1** (upstream [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui)), без неявного `latest`, чтобы воспроизводимость и откаты были предсказуемы.
-
----
-
-## 3. Каталог на master
-
-Создаём дерево в духе **`/opt/infrastructure/panel`**: `docker-compose.yml`, при необходимости `.env`, именованные **тома** для SQLite/данных панели и конфигов Xray — чтобы обновления образа не затирали состояние.
+1. **Bootstrap** на master: Docker, **nginx + certbot** под **`DOMAIN_NAME`**, SSH и ключи (см. [`BOOTSTRAP.md`](BOOTSTRAP.md), [`SERVER_HARDENING.md`](SERVER_HARDENING.md)).
+2. Секреты **`DOMAIN_NAME`**, **`VPN_ADMIN_USERNAME`**, **`VPN_ADMIN_PASSWORD`**, **`MASTER_IP`**, **`SSH_PRIVATE_KEY`** (см. [`GITHUB_SECRETS.md`](GITHUB_SECRETS.md), [`AGENT_INFRA.md`](AGENT_INFRA.md)).
 
 ---
 
-## 4. Поднять стек
+## Что делает Ansible
 
-Ansible на группе **`master`**: скачать образ (`docker compose pull`), поднять сервисы (`docker compose up -d`). Порт веб-панели (часто **2053**) или только loopback + прокси на **443** через nginx — по выбранной схеме из bootstrap.
+| Этап | Файл | Смысл |
+|------|------|--------|
+| Compose | [`ansible/3xui/tasks/panel/10-compose.yml`](../ansible/3xui/tasks/panel/10-compose.yml) | Каталог **`/opt/infrastructure/panel`**, образ **`xui_image`**, `docker compose up` |
+| Админка CLI | [`20-admin-cli.yml`](../ansible/3xui/tasks/panel/20-admin-cli.yml) | `x-ui setting` — логин, пароль, **`webBasePath`** |
+| Nginx | [`30-nginx.yml`](../ansible/3xui/tasks/panel/30-nginx.yml) + шаблон | Сниппет и `include` в vhost (по умолчанию **`xui_nginx_site_path`**) |
+| UFW | [`40-ufw-inbound.yml`](../ansible/3xui/tasks/panel/40-ufw-inbound.yml) | Разрешить порт **`xui_inbound_port`** (VLESS) |
+| Inbound API | [`50-api-inbound.yml`](../ansible/3xui/tasks/panel/50-api-inbound.yml) | Play на **`localhost`**: UI-login → Bearer → при отсутствии remark — VLESS+REALITY inbound |
 
----
+Точка входа плейбука: [`ansible/3xui/deploy-panel.yml`](../ansible/3xui/deploy-panel.yml) (два play: **`master`**, затем **`localhost`**).
 
-## 5. Первичная настройка панели
+Общий сценарий **CSRF → login → Cookie → getApiToken**: [`ansible/3xui/tasks/include-panel-ui-session-bearer.yml`](../ansible/3xui/tasks/include-panel-ui-session-bearer.yml), шаблон Cookie: [`ansible/3xui/templates/common/cookie_header.j2`](../ansible/3xui/templates/common/cookie_header.j2).
 
-Первый вход в UI (или настройка через API): **`webBasePath`**, учётка админа, при необходимости **API Token** (Настройки → Безопасность) для ботов и скриптов. Секреты **`VPN_ADMIN_USERNAME`** / **`VPN_ADMIN_PASSWORD`** должны совпадать с реальной учёткой панели — либо выравниваем вручную, либо позже автоматизируем согласование (отдельное решение).
-
----
-
-## 6. Проверка
-
-Проверка снаружи: HTTPS на **`DOMAIN_NAME`**, логин в панель. Для автоматизации — smoke к REST под префиксом **`panel/api`** (см. [`PANEL_REST_API.md`](PANEL_REST_API.md)): **Bearer token** или сессия после **`/login`**.
-
----
-
-## 7. Обновления панели
-
-Повторный запуск **`deploy-3xui`** с **`target: panel`**: обновление тега образа, `compose up` с сохранением томов, при необходимости короткий downtime; миграции БД — по поведению конкретной версии 3x-ui.
+Пины образа и портов: [`ansible/3xui/defaults/main.yml`](../ansible/3xui/defaults/main.yml).
 
 ---
 
-## Где что лежит в репозитории
+## Контроллер для второго play (`localhost`)
 
-| Что | Где |
-|-----|-----|
-| Точка входа плейбука панели | `ansible/3xui/deploy-panel.yml` |
-| Реальные шаги установки (к дописанию) | `ansible/3xui/tasks/panel/*.yml` |
-| CI: inventory + SSH + вызов плейбука | `.github/workflows/deploy-3xui.yml` |
-| Секрет доступа к хосту | `MASTER_IP` — [`GITHUB_SECRETS.md`](GITHUB_SECRETS.md) |
-| SSH-контекст для агента | [`AGENT_INFRA.md`](AGENT_INFRA.md) |
+Плей **Configure panel inbound via public HTTPS API** выполняется на машине, где запущен `ansible-playbook` (CI или WSL). Для генерации **shortId** Reality: сначала **`python3`** или **`openssl`**, иначе **`lookup('password', …)`** (см. [`AGENT_INFRA.md`](AGENT_INFRA.md) — рекомендация WSL/Linux).
 
-Состояние на сейчас: шаги **3–7** в Ansible **ещё не реализованы** — в `tasks/panel/` стоит заглушка; порядок выше — договорённый план реализации.
+---
+
+## Проверка
+
+Снаружи: **`https://DOMAIN_NAME`**, вход в панель. Inbound с **`xui_inbound_remark`** в списке inbounds. REST: [`PANEL_REST_API.md`](PANEL_REST_API.md).
+
+---
+
+## Обновление
+
+Повторный **`deploy-3xui`** с **`target: panel`**: `compose pull/up`, правки nginx при изменении шаблонов, повторный прогон API-задачи идемпотентен по remark inbound.
