@@ -23,6 +23,7 @@
 
 - Перезапустить регистрацию нод (например плейбук `ansible/3xui/deploy-nodes.yml` / скрипт деплоя нод), **или**
 - Вручную: скопировать актуальный **API Token** с ноды (Настройки → Безопасность) в карточку ноды на master.
+- Если меняли **`webBasePath`** на ноде: на master в записи ноды должен совпадать **`basePath`** (в Ansible по умолчанию **`xui_node_panel_base_path`** = **`xui_web_base_path`**, см. **`ansible/3xui/defaults/main.yml`** и **`docs/PANEL_MASTER_NODES.md`**).
 
 ## Заметка по безопасности
 

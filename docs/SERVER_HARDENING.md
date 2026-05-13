@@ -87,4 +87,4 @@
 
 ## Связь с документацией по панели
 
-Установка панели и портов веб-UI описана планом в **[`PANEL_INSTALL_MASTER.md`](PANEL_INSTALL_MASTER.md)**; там нужно согласовать, будет ли панель только за **nginx:443** или отдельный порт (**2053**) и добавить под это правила UFW/Docker при реализации **`ansible/3xui/`**.
+Сборка **3x-ui** в **`ansible/3xui/`**: на **master** панель в Docker слушает **127.0.0.1:2053**, снаружи — **nginx:443** под **`DOMAIN_NAME`** (см. **[`PANEL_INSTALL_MASTER.md`](PANEL_INSTALL_MASTER.md)**). Плейбук открывает в UFW порт **VPN inbound** (`xui_inbound_port`, по умолчанию 8443). Ноды и регистрация на master — **[`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md)**.

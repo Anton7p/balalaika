@@ -54,3 +54,7 @@
   loop_control:
     loop_var: sync_node
     label: "{{ sync_node.name }} {{ sync_node.address }}"
+
+- name: Ensure one VLESS+REALITY inbound per node on master (remark with node IP)
+  ansible.builtin.include_tasks: tasks/nodes/52-per-node-inbounds-on-master.yml
+  when: xui_create_per_node_inbounds | default(false) | bool

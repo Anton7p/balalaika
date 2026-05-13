@@ -1,0 +1,11 @@
+---
+- name: Read VPN port for this node from localhost fact map
+  ansible.builtin.set_fact:
+    xui_this_node_vpn_port: "{{ hostvars['localhost']['xui_node_vpn_port_map'][inventory_hostname] | int }}"
+
+- name: Allow per-node VPN inbound port on node (UFW)
+  community.general.ufw:
+    rule: allow
+    port: "{{ xui_this_node_vpn_port | string }}"
+    proto: tcp
+    comment: "3x-ui VLESS per-node (ansible {{ inventory_hostname }})"

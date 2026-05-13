@@ -122,6 +122,13 @@ export class EnvVars {
   @IsNotEmpty()
   VPN_PANEL_URL!: string;
 
+  /** Числовой id inbound в 3x-ui для addClient/updateClient; по умолчанию 1. Нужен при нескольких inbound (например по нодам). */
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(2147483647)
+  VPN_PANEL_INBOUND_ID?: number;
+
   @IsString()
   @IsNotEmpty()
   VPN_ADMIN_USERNAME!: string;

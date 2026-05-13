@@ -26,6 +26,7 @@
     - ansible.builtin.include_tasks: tasks/panel/20-admin-cli.yml
     - ansible.builtin.include_tasks: tasks/panel/30-nginx.yml
     - ansible.builtin.include_tasks: tasks/panel/40-ufw-inbound.yml
+      when: xui_create_default_local_inbound | default(true) | bool
 
 # HTTPS API к панели — только с контроллера (WSL/CI), без sudo на localhost.
 # Отдельный play: не смешивать с become на master. В inventory ssh/become
@@ -44,3 +45,4 @@
     xui_vpn_password: "{{ lookup('env', 'VPN_ADMIN_PASSWORD') | default('', true) | trim }}"
   tasks:
     - ansible.builtin.include_tasks: tasks/panel/50-api-inbound.yml
+      when: xui_create_default_local_inbound | default(true) | bool

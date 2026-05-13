@@ -56,3 +56,15 @@
 
   tasks:
     - ansible.builtin.include_tasks: tasks/nodes/50-register-on-master.yml
+
+- name: Open VPN inbound port on each node (per-node inbound from master)
+  hosts: nodes
+  become: true
+  gather_facts: false
+  vars_files:
+    - defaults/main.yml
+  tasks:
+    - ansible.builtin.include_tasks: tasks/nodes/31-ufw-vpn-inbound.yml
+      when:
+        - xui_create_per_node_inbounds | default(false) | bool
+        - (hostvars['localhost']['xui_node_vpn_port_map'] | default({})) | length > 0

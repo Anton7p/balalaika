@@ -21,7 +21,7 @@ CI: workflow **[`deploy-3xui.yml`](../.github/workflows/deploy-3xui.yml)** с **
 | Админка CLI | [`20-admin-cli.yml`](../ansible/3xui/tasks/panel/20-admin-cli.yml) | `x-ui setting` — логин, пароль, **`webBasePath`** |
 | Nginx | [`30-nginx.yml`](../ansible/3xui/tasks/panel/30-nginx.yml) + шаблон | Сниппет и `include` в vhost (по умолчанию **`xui_nginx_site_path`**) |
 | UFW | [`40-ufw-inbound.yml`](../ansible/3xui/tasks/panel/40-ufw-inbound.yml) | Разрешить порт **`xui_inbound_port`** (VLESS) |
-| Inbound API | [`50-api-inbound.yml`](../ansible/3xui/tasks/panel/50-api-inbound.yml) | Play на **`localhost`**: UI-login → Bearer → при отсутствии remark — VLESS+REALITY inbound |
+| Inbound API | [`50-api-inbound.yml`](../ansible/3xui/tasks/panel/50-api-inbound.yml) | Play на **`localhost`**: UI-login → Bearer → при отсутствии remark — VLESS+REALITY inbound (только если **`xui_create_default_local_inbound`**) |
 
 Точка входа плейбука: [`ansible/3xui/deploy-panel.yml`](../ansible/3xui/deploy-panel.yml) (два play: **`master`**, затем **`localhost`**).
 

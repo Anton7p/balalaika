@@ -1,0 +1,184 @@
+---
+# loop: xui_pnm_inv_host, xui_node_ord_idx; xui_ib_master_for_nodes_res, xui_nodes_master_ref, xui_master_* .
+- name: Derive per-node remark and planned port
+  ansible.builtin.set_fact:
+    xui_pnm_addr: "{{ hostvars[xui_pnm_inv_host].ansible_host }}"
+    xui_pnm_remark: "{{ xui_per_node_inbound_remark_prefix }}-{{ hostvars[xui_pnm_inv_host].ansible_host | replace('.', '-') }}"
+    xui_pnm_port: "{{ xui_per_node_inbound_port_base | int + (xui_node_ord_idx | int) }}"
+
+- name: Resolve master DB node id for this inventory host
+  ansible.builtin.set_fact:
+    xui_pnm_master_node_id: >-
+      {% set ns = namespace(mid='') %}
+      {% for r in xui_nodes_master_ref.json.obj | default([]) %}
+      {% set r_scheme = r.scheme | default('https', true) %}
+      {% if (ns.mid | length) == 0
+            and r.address | default('', true) | string == (xui_pnm_addr | string)
+            and (r.port | default(0) | int) == (xui_node_http_port | int)
+            and (r_scheme | string) == (xui_node_scheme | string) %}
+      {% set ns.mid = r.id | string %}
+      {% endif %}
+      {% endfor %}
+      {{ ns.mid }}
+
+- name: Require node row on master for inbound binding
+  ansible.builtin.assert:
+    that:
+      - (xui_pnm_master_node_id | string | trim | length) > 0
+    fail_msg: >-
+      No master node id for {{ xui_pnm_inv_host }} ({{ xui_pnm_addr }}).
+      Check NODE_IPS / inventory and nodes/list on master.
+
+- name: Reset per-iteration skip flag (avoid leaking between loop hosts)
+  ansible.builtin.set_fact:
+    xui_pnm_skip_create: false
+
+- name: Find existing inbound by remark (idempotence)
+  ansible.builtin.set_fact:
+    xui_pnm_existing_rows: "{{ xui_ib_master_for_nodes_res.json.obj | default([]) | selectattr('remark', 'defined') | selectattr('remark', 'equalto', xui_pnm_remark) | list }}"
+
+- name: Use existing inbound port when remark already present
+  when: (xui_pnm_existing_rows | length) > 0
+  ansible.builtin.set_fact:
+    xui_pnm_open_port: "{{ xui_pnm_existing_rows[0].port | int }}"
+
+- name: Mark no create when inbound exists
+  when: (xui_pnm_existing_rows | length) > 0
+  ansible.builtin.set_fact:
+    xui_pnm_skip_create: true
+
+- name: Planned port when creating new inbound
+  when: (xui_pnm_existing_rows | length) == 0
+  ansible.builtin.set_fact:
+    xui_pnm_open_port: "{{ xui_pnm_port | int }}"
+    xui_pnm_skip_create: false
+
+- name: Generate Reality shortId (16 hex chars on controller)
+  when: not (xui_pnm_skip_create | default(false) | bool)
+  block:
+    - name: Prefer python3, else openssl (Linux/macOS/WSL)
+      ansible.builtin.shell: |
+        set -eu
+        if command -v python3 >/dev/null 2>&1; then
+          python3 -c "import secrets; print(secrets.token_hex(8))"
+        elif command -v openssl >/dev/null 2>&1; then
+          openssl rand -hex 8
+        else
+          exit 47
+        fi
+      args:
+        executable: /bin/bash
+      register: xui_pnm_short_id_cmd
+      changed_when: false
+
+    - name: Set shortId from shell output
+      ansible.builtin.set_fact:
+        xui_pnm_reality_short_id_hex: "{{ xui_pnm_short_id_cmd.stdout | trim }}"
+
+  rescue:
+    - name: Fallback shortId (Ansible password lookup, no python3/openssl)
+      ansible.builtin.set_fact:
+        xui_pnm_reality_short_id_hex: "{{ lookup('password', '/dev/null', length=16, chars='0123456789abcdef') }}"
+
+- name: Assert Reality shortId is 16 hex chars
+  ansible.builtin.assert:
+    that:
+      - xui_pnm_reality_short_id_hex is defined
+      - (xui_pnm_reality_short_id_hex | string | length) == 16
+      - (xui_pnm_reality_short_id_hex | string | lower) is match('^[0-9a-f]{16}$')
+    fail_msg: >-
+      Could not build 16-char hex Reality shortId on controller.
+      Install python3 or openssl, or run Ansible from WSL/Linux (see docs/AGENT_INFRA.md).
+  when: not (xui_pnm_skip_create | default(false) | bool)
+
+- name: Fetch new X25519 cert for Reality (Bearer)
+  ansible.builtin.uri:
+    url: "{{ xui_master_origin }}/panel/panel/api/server/getNewX25519Cert"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ xui_master_bearer }}"
+      Accept: application/json
+    status_code: 200
+    timeout: 90
+  register: xui_pnm_newcert_res
+  no_log: true
+  when: not (xui_pnm_skip_create | default(false) | bool)
+
+- name: Assert getNewX25519Cert succeeded
+  ansible.builtin.assert:
+    that:
+      - xui_pnm_newcert_res.json is defined
+      - xui_pnm_newcert_res.json.success | default(false)
+      - xui_pnm_newcert_res.json.obj is defined
+    fail_msg: "getNewX25519Cert failed: {{ xui_pnm_newcert_res.json.msg | default('unknown') }}"
+  when: not (xui_pnm_skip_create | default(false) | bool)
+
+- name: Parse getNewX25519Cert payload (obj may be JSON string or object)
+  ansible.builtin.set_fact:
+    xui_pnm_cert_obj: "{{ xui_pnm_newcert_res.json.obj | from_json if (xui_pnm_newcert_res.json.obj is string) else xui_pnm_newcert_res.json.obj }}"
+  when: not (xui_pnm_skip_create | default(false) | bool)
+
+- name: Assert new X25519 cert contains privateKey
+  ansible.builtin.assert:
+    that:
+      - xui_pnm_cert_obj.privateKey is defined
+      - (xui_pnm_cert_obj.privateKey | string | length) > 0
+    fail_msg: getNewX25519Cert returned no privateKey
+  when: not (xui_pnm_skip_create | default(false) | bool)
+
+- name: Build streamSettings JSON string for VLESS+REALITY (per-node inbound)
+  ansible.builtin.set_fact:
+    xui_pnm_stream_settings_str: "{{ xui_pnm_stream_inner | to_json }}"
+  vars:
+    xui_pnm_stream_inner:
+      network: tcp
+      security: reality
+      realitySettings:
+        show: false
+        xver: 0
+        dest: "{{ xui_reality_dest }}"
+        serverNames: "{{ xui_reality_server_names }}"
+        privateKey: "{{ xui_pnm_cert_obj.privateKey }}"
+        minClientVer: ""
+        maxClientVer: ""
+        maxTimediff: 0
+        shortIds:
+          - "{{ xui_pnm_reality_short_id_hex }}"
+  when: not (xui_pnm_skip_create | default(false) | bool)
+
+- name: Create VLESS+REALITY inbound on master bound to remote node
+  ansible.builtin.uri:
+    url: "{{ xui_master_origin }}/panel/panel/api/inbounds/add"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ xui_master_bearer }}"
+      Accept: application/json
+    body_format: json
+    body:
+      up: 0
+      down: 0
+      total: 0
+      remark: "{{ xui_pnm_remark }}"
+      enable: true
+      expiryTime: 0
+      listen: ""
+      port: "{{ xui_pnm_open_port | int }}"
+      protocol: vless
+      settings: "{{ {'clients': [], 'decryption': 'none', 'fallbacks': []} | to_json }}"
+      streamSettings: "{{ xui_pnm_stream_settings_str }}"
+      tag: ""
+      sniffing: "{{ {'enabled': true, 'destOverride': ['http', 'tls', 'quic'], 'metadataOnly': false} | to_json }}"
+      nodeId: "{{ xui_pnm_master_node_id | int }}"
+    status_code: 200
+    timeout: 90
+  register: xui_pnm_inb_create_res
+  no_log: true
+  failed_when:
+    - not (xui_pnm_inb_create_res.skipped | default(false) | bool)
+    - xui_pnm_inb_create_res.json is defined
+    - not (xui_pnm_inb_create_res.json.success | default(false))
+  when: not (xui_pnm_skip_create | default(false) | bool)
+
+- name: Record VPN port for this inventory host (UFW on node)
+  ansible.builtin.set_fact:
+    xui_node_vpn_port_map: "{{ xui_node_vpn_port_map | default({}) | combine({ xui_pnm_inv_host: (xui_pnm_open_port | int) }) }}"

@@ -24,7 +24,7 @@ const VLESS_FLOW_XTLS_RPRX_VISION = 'xtls-rprx-vision' as const;
 
 /** Базовый путь веб-UI 3x-ui (типичный webBasePath). */
 const DEFAULT_XUI_WEB_BASE_PATH = '/panel/';
-/** Id inbound в 3x-ui для выдачи клиентов; при другом id измените здесь. */
+/** Id inbound в 3x-ui для addClient/updateClient: env VPN_PANEL_INBOUND_ID или по умолчанию 1. */
 const DEFAULT_XUI_INBOUND_ID = 1;
 
 /** Фраза + "-" + telegram id в поле email панели (без @домена). Латиница для совместимости с клиентами. */
@@ -70,6 +70,17 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
   }
 
   private get inboundId(): number {
+    const raw = this.config.get<string>('VPN_PANEL_INBOUND_ID');
+    if (raw !== undefined && raw.trim().length > 0) {
+      const n = Number.parseInt(raw, 10);
+      if (!Number.isNaN(n) && n > 0) {
+        return n;
+      }
+    }
+    const num = this.config.get<number>('VPN_PANEL_INBOUND_ID');
+    if (typeof num === 'number' && Number.isFinite(num) && num > 0) {
+      return Math.floor(num);
+    }
     return DEFAULT_XUI_INBOUND_ID;
   }
 

@@ -1,0 +1,57 @@
+---
+# Ожидаются xui_master_origin, xui_master_bearer (play Register nodes, localhost).
+- name: List inbounds on master (per-node reconcile)
+  ansible.builtin.uri:
+    url: "{{ xui_master_origin }}/panel/panel/api/inbounds/list"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ xui_master_bearer }}"
+      Accept: application/json
+    status_code: 200
+    timeout: 90
+  register: xui_ib_master_for_nodes_res
+  no_log: true
+
+- name: Assert master inbounds list succeeded
+  ansible.builtin.assert:
+    that:
+      - xui_ib_master_for_nodes_res.json is defined
+      - xui_ib_master_for_nodes_res.json.success | default(false)
+      - xui_ib_master_for_nodes_res.json.obj is defined
+    fail_msg: "master inbounds/list failed: {{ xui_ib_master_for_nodes_res.json.msg | default('unknown') }}"
+
+- name: Refresh nodes on master after registration
+  ansible.builtin.uri:
+    url: "{{ xui_master_origin }}/panel/panel/api/nodes/list"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ xui_master_bearer }}"
+      Accept: application/json
+    status_code: 200
+    timeout: 90
+  register: xui_nodes_master_ref
+  no_log: true
+
+- name: Assert master nodes list succeeded
+  ansible.builtin.assert:
+    that:
+      - xui_nodes_master_ref.json is defined
+      - xui_nodes_master_ref.json.success | default(false)
+      - xui_nodes_master_ref.json.obj is defined
+    fail_msg: "master nodes/list failed: {{ xui_nodes_master_ref.json.msg | default('unknown') }}"
+
+- name: Stable node iteration order (inventory hostnames sorted)
+  ansible.builtin.set_fact:
+    xui_nodes_sorted: "{{ groups['nodes'] | sort | list }}"
+
+- name: Reset VPN port map for UFW on nodes
+  ansible.builtin.set_fact:
+    xui_node_vpn_port_map: {}
+
+- name: Reconcile one VLESS+REALITY inbound per node on master
+  ansible.builtin.include_tasks: tasks/nodes/53-one-per-node-inbound.yml
+  loop: "{{ xui_nodes_sorted }}"
+  loop_control:
+    loop_var: xui_pnm_inv_host
+    index_var: xui_node_ord_idx
+    label: "{{ xui_pnm_inv_host }}"
