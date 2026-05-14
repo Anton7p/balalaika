@@ -98,12 +98,14 @@
     xui_cert_obj: "{{ xui_newcert_res.json.obj | from_json if (xui_newcert_res.json.obj is string) else xui_newcert_res.json.obj }}"
   when: (xui_inbound_matching | int) == 0
 
-- name: Assert new X25519 cert contains privateKey
+- name: Assert new X25519 cert contains privateKey and publicKey
   ansible.builtin.assert:
     that:
       - xui_cert_obj.privateKey is defined
       - (xui_cert_obj.privateKey | string | length) > 0
-    fail_msg: getNewX25519Cert returned no privateKey
+      - xui_cert_obj.publicKey is defined
+      - (xui_cert_obj.publicKey | string | length) > 0
+    fail_msg: getNewX25519Cert returned incomplete Reality keypair
   when: (xui_inbound_matching | int) == 0
 
 - name: Build streamSettings JSON string for VLESS+REALITY
@@ -119,6 +121,7 @@
         dest: "{{ xui_reality_dest }}"
         serverNames: "{{ xui_reality_server_names }}"
         privateKey: "{{ xui_cert_obj.privateKey }}"
+        publicKey: "{{ xui_cert_obj.publicKey }}"
         minClientVer: ""
         maxClientVer: ""
         maxTimediff: 0

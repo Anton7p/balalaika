@@ -40,6 +40,44 @@
       - xui_nodes_master_ref.json.obj is defined
     fail_msg: "master nodes/list failed: {{ xui_nodes_master_ref.json.msg | default('unknown') }}"
 
+# Heartbeat/probe can lag right after registration; give jobs a moment then force probe.
+- name: Brief pause before node health probe (heartbeat job interval)
+  ansible.builtin.pause:
+    seconds: 15
+
+- name: Probe each inventory node on master (refresh status before inbounds/add)
+  ansible.builtin.uri:
+    url: "{{ xui_master_origin }}/panel/panel/api/nodes/probe/{{ xui_probe_node_id }}"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ xui_master_bearer }}"
+      Accept: application/json
+      Content-Type: application/json
+    body_format: json
+    body: {}
+    status_code: 200
+    timeout: 90
+  vars:
+    xui_probe_addr: "{{ hostvars[item].ansible_host }}"
+    xui_probe_node_id: >-
+      {% set ns = namespace(mid='') %}
+      {% for r in xui_nodes_master_ref.json.obj | default([]) %}
+      {% set r_scheme = r.scheme | default('https', true) %}
+      {% if (ns.mid | length) == 0
+            and r.address | default('', true) | string == (xui_probe_addr | string)
+            and (r.port | default(0) | int) == (xui_node_http_port | int)
+            and (r_scheme | string) == (xui_node_scheme | string) %}
+      {% set ns.mid = r.id | string %}
+      {% endif %}
+      {% endfor %}
+      {{ ns.mid }}
+  loop: "{{ groups['nodes'] | sort | list }}"
+  when: (xui_probe_node_id | string | trim | length) > 0
+  register: xui_probe_nodes_batch
+  failed_when: false
+  changed_when: false
+  no_log: true
+
 - name: Stable node iteration order (inventory hostnames sorted)
   ansible.builtin.set_fact:
     xui_nodes_sorted: "{{ groups['nodes'] | sort | list }}"
