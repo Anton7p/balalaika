@@ -6,20 +6,21 @@
     xui_pnm_remark: "{{ xui_per_node_inbound_remark_prefix }}-{{ hostvars[xui_pnm_inv_host].ansible_host | replace('.', '-') }}"
     xui_pnm_port: "{{ xui_per_node_inbound_port_base | int + (xui_node_ord_idx | int) }}"
 
-- name: Resolve master DB node id for this inventory host
+- name: Master registry name for this node (same pattern as 50-register node_row.name)
+  ansible.builtin.set_fact:
+    xui_pnm_node_master_name: "node-{{ hostvars[xui_pnm_inv_host].ansible_host | replace('.', '-') }}"
+
+- name: Resolve master DB node id for this inventory host (prefer name, then address)
   ansible.builtin.set_fact:
     xui_pnm_master_node_id: >-
-      {% set ns = namespace(mid='') %}
-      {% for r in xui_nodes_master_ref.json.obj | default([]) %}
-      {% set r_scheme = r.scheme | default('https', true) %}
-      {% if (ns.mid | length) == 0
-            and r.address | default('', true) | string == (xui_pnm_addr | string)
-            and (r.port | default(0) | int) == (xui_node_http_port | int)
-            and (r_scheme | string) == (xui_node_scheme | string) %}
-      {% set ns.mid = r.id | string %}
-      {% endif %}
-      {% endfor %}
-      {{ ns.mid }}
+      {{
+        (
+          (xui_master_name_to_node_id | default({}))[xui_pnm_node_master_name]
+          | default((xui_master_addr_to_node_id | default({}))[xui_pnm_addr | string])
+          | default('')
+        )
+        | string
+      }}
 
 - name: Require node row on master for inbound binding
   ansible.builtin.assert:
@@ -174,7 +175,7 @@
           streamSettings: "{{ xui_pnm_stream_settings_str }}"
           tag: "{{ xui_pnm_remark }}"
           sniffing: "{{ {'enabled': true, 'destOverride': ['http', 'tls', 'quic'], 'metadataOnly': false} | to_json }}"
-          nodeId: "{{ xui_pnm_master_node_id | int }}"
+          nodeId: "{{ xui_pnm_master_node_id | trim | int }}"
         status_code: 200
         timeout: 90
       register: xui_pnm_inb_create_res
@@ -189,6 +190,7 @@
       ansible.builtin.fail:
         msg: >-
           inbounds/add failed for {{ xui_pnm_inv_host }} (nodeId={{ xui_pnm_master_node_id }}, port={{ xui_pnm_open_port }}):
+          http_status={{ xui_pnm_inb_create_res.status | default('n/a') }},
           success={{ xui_pnm_inb_create_res.json.success | default('n/a') }},
           msg={{ xui_pnm_inb_create_res.json.msg | default(xui_pnm_inb_create_res.msg | default('no json')) }}
       when: not (xui_pnm_skip_create | default(false) | bool)

@@ -160,12 +160,3 @@
     - xui_inb_create_res.json is defined
     - not (xui_inb_create_res.json.success | default(false))
   when: (xui_inbound_matching | int) == 0
-
-- name: Record inbound reconcile result (compat with former shell register)
-  ansible.builtin.set_fact:
-    xui_panel_inbound_api:
-      stdout: "{{ 'inbound_created' if not (xui_inb_create_res.skipped | default(false) | bool) else 'already_have_inbound_skip' }}"
-  changed_when:
-    - not (xui_inb_create_res.skipped | default(false) | bool)
-    - xui_inb_create_res.json is defined
-    - (xui_inb_create_res.json.success | default(false))

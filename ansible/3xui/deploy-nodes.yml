@@ -46,7 +46,10 @@
   tasks:
     - name: GET inbounds/list on each node from master (Bearer must return 200)
       ansible.builtin.uri:
-        url: "http://{{ hostvars[item].ansible_host }}:{{ xui_node_http_port }}/panel/panel/api/inbounds/list"
+        url: >-
+          {{ xui_node_scheme }}://{{ hostvars[item].ansible_host }}:{{ xui_node_http_port | int }}{{
+            (xui_node_panel_base_path | default('/panel/') | trim | regex_replace('/$', ''))
+          }}/panel/api/inbounds/list
         method: GET
         headers:
           Authorization: "Bearer {{ hostvars[item].xui_node_api_token }}"

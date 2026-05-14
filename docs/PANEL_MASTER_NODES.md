@@ -15,6 +15,12 @@
 
 При регистрации ноды на master в API передаётся **`basePath`**: по умолчанию **`xui_node_panel_base_path`** (= **`xui_web_base_path`**, обычно **`/panel/`**), чтобы URL пробы master совпадал с **`webBasePath`** на ноде. Переопределите в **`ansible/3xui/defaults/main.yml`** или через `-e`, если на ноде другой base path.
 
+## Нода в UI показывает Offline
+
+В **3x-ui v3** к **`/panel/api/*`** без валидной сессии или **Bearer** панель часто отвечает **HTTP 404** (не 401). Если контейнер на ноде **Up** и веб **`/panel/`** открывается, а на центральной панели нода **Offline**, чаще всего на master в записи ноды **устаревший API token** относительно самой ноды, либо неверный **`basePath`** относительно **`webBasePath`** на ноде (см. абзац про **`basePath`** выше).
+
+**Что сделать:** снова прогнать **`ansible/3xui/deploy-nodes.yml`** или **`scripts/deploy_3xui_nodes.sh`**, либо вручную синхронизировать **API Token** и **`basePath`** в карточке ноды на master с настройками на ноде.
+
 ## Один inbound на ноду (Ansible)
 
 По умолчанию в **`ansible/3xui/defaults/main.yml`**: **`xui_create_per_node_inbounds: true`**. После регистрации нод на master плейбук **`deploy-nodes.yml`** создаёт на **центральной панели** отдельный VLESS+REALITY inbound с полем **`nodeId`** (трафик на Xray этой ноды). **Remark** вида **`{{ xui_per_node_inbound_remark_prefix }}-203-0-113-10`** (IP с дефисами), чтобы в списке было видно, какая нода. Порты на панели **уникальны глобально**: назначаются как **`xui_per_node_inbound_port_base`** (по умолчанию **9443**) + порядковый индекс ноды после сортировки имён в **`[nodes]`**; на самой ноде в UFW открывается соответствующий TCP-порт.

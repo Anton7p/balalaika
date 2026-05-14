@@ -1,52 +1,101 @@
 ---
 # sync_node, xui_master_origin, xui_master_bearer, xui_nodes_list_res — из вызывающего 50-register-on-master.yml
-- name: Resolve existing master node id for this sync entry
+- name: Normalize master nodes list rows from API (obj may be JSON string; register may be uri or bare body dict)
+  ansible.builtin.set_fact:
+    xui_nodes_list_rows: >-
+      {{
+        (
+          (xui_nodes_list_res.json | default(xui_nodes_list_res)).obj | from_json
+        )
+        if ((xui_nodes_list_res.json | default(xui_nodes_list_res)).obj is string)
+        else (
+          (xui_nodes_list_res.json | default(xui_nodes_list_res)).obj | default([]) | list
+        )
+      }}
+
+- name: Build name -> master node id map (UNIQUE is on name; list may omit address keys)
+  ansible.builtin.set_fact:
+    xui_sync_name_to_node_id: >-
+      {{
+        dict(
+          (xui_nodes_list_rows | default([])
+           | map(attribute='name')
+           | map('string')
+           | list)
+          | zip(xui_nodes_list_rows | default([]) | map(attribute='id') | list)
+          | list
+        )
+      }}
+
+- name: Build address -> master node id map (fallback when name missing in API row)
+  ansible.builtin.set_fact:
+    xui_sync_addr_to_node_id: >-
+      {{
+        dict(
+          (xui_nodes_list_rows | default([])
+           | map(attribute='address')
+           | map('string')
+           | list)
+          | zip(xui_nodes_list_rows | default([]) | map(attribute='id') | list)
+          | list
+        )
+      }}
+
+- name: Resolve existing master node id for this sync entry (prefer name, then address)
   ansible.builtin.set_fact:
     xui_sync_matched_id: >-
-      {% set ns = namespace(mid='') %}
-      {% for r in xui_nodes_list_res.json.obj | default([]) %}
-      {% set r_scheme = r.scheme | default('https', true) %}
-      {% if (ns.mid | length) == 0
-            and r.address | default('', true) | string == (sync_node.address | string)
-            and (r.port | default(0) | int) == (sync_node.port | int)
-            and (r_scheme | string) == (sync_node.scheme | string) %}
-      {% set ns.mid = r.id | string %}
-      {% endif %}
-      {% endfor %}
-      {{ ns.mid }}
+      {{
+        (
+          (xui_sync_name_to_node_id | default({}))[sync_node.name | string]
+          | default((xui_sync_addr_to_node_id | default({}))[sync_node.address | string])
+          | default('')
+        )
+        | string
+      }}
 
 - name: Add node on central master
-  when: xui_sync_matched_id | length == 0
-  ansible.builtin.uri:
-    url: "{{ xui_master_origin }}/panel/panel/api/nodes/add"
-    method: POST
-    body_format: json
-    body:
-      name: "{{ sync_node.name }}"
-      remark: "{{ sync_node.remark | default('ansible', true) }}"
-      scheme: "{{ sync_node.scheme }}"
-      address: "{{ sync_node.address }}"
-      port: "{{ sync_node.port | int }}"
-      basePath: "{{ (sync_node.basePath | default(xui_node_panel_base_path, true)) | trim }}"
-      apiToken: "{{ sync_node.apiToken | trim }}"
-      enable: true
-      allowPrivateAddress: true
-    headers:
-      Authorization: "Bearer {{ xui_master_bearer }}"
-      Accept: application/json
-    status_code: 200
-    timeout: 90
-  register: xui_master_node_sync_res
-  no_log: true
-  failed_when:
-    - not (xui_master_node_sync_res.skipped | default(false) | bool)
-    - xui_master_node_sync_res.json is defined
-    - not (xui_master_node_sync_res.json.success | default(false))
+  when: (xui_sync_matched_id | trim | length) == 0
+  block:
+    - name: POST nodes/add on master
+      ansible.builtin.uri:
+        url: "{{ xui_master_origin }}/panel/panel/api/nodes/add"
+        method: POST
+        body_format: json
+        body:
+          name: "{{ sync_node.name }}"
+          remark: "{{ sync_node.remark | default('ansible', true) }}"
+          scheme: "{{ sync_node.scheme }}"
+          address: "{{ sync_node.address }}"
+          port: "{{ sync_node.port | int }}"
+          basePath: "{{ (sync_node.basePath | default(xui_node_panel_base_path, true)) | trim }}"
+          apiToken: "{{ sync_node.apiToken | trim }}"
+          enable: true
+          allowPrivateAddress: true
+        headers:
+          Authorization: "Bearer {{ xui_master_bearer }}"
+          Accept: application/json
+        status_code: 200
+        timeout: 90
+      register: xui_master_node_sync_res
+      no_log: true
+      failed_when:
+        - not (xui_master_node_sync_res.skipped | default(false) | bool)
+        - xui_master_node_sync_res.json is defined
+        - not (xui_master_node_sync_res.json.success | default(false))
+  rescue:
+    - name: Explain nodes/add failure (no secrets)
+      ansible.builtin.fail:
+        msg: >-
+          nodes/add failed for {{ sync_node.name }} addr={{ sync_node.address | string }}.
+          matched_id='{{ xui_sync_matched_id }}'.
+          name_keys={{ xui_sync_name_to_node_id.keys() | list if xui_sync_name_to_node_id is mapping else 'n/a' }}.
+          obj_len={{ (xui_nodes_list_rows | default([])) | length }}.
+          panel_msg={{ xui_master_node_sync_res.json.msg | default(xui_master_node_sync_res.msg | default('n/a')) }}
 
 - name: Update node on central master
-  when: xui_sync_matched_id | length > 0
+  when: (xui_sync_matched_id | trim | length) > 0
   ansible.builtin.uri:
-    url: "{{ xui_master_origin }}/panel/panel/api/nodes/update/{{ xui_sync_matched_id }}"
+    url: "{{ xui_master_origin }}/panel/panel/api/nodes/update/{{ xui_sync_matched_id | trim }}"
     method: POST
     body_format: json
     body:

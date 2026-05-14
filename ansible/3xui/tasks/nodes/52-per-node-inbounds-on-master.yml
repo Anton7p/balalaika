@@ -40,6 +40,43 @@
       - xui_nodes_master_ref.json.obj is defined
     fail_msg: "master nodes/list failed: {{ xui_nodes_master_ref.json.msg | default('unknown') }}"
 
+- name: Normalize master nodes list rows (probe + inbounds; obj may be JSON string)
+  ansible.builtin.set_fact:
+    xui_nodes_master_rows: >-
+      {{
+        (xui_nodes_master_ref.json.obj | from_json)
+        if (xui_nodes_master_ref.json.obj is string)
+        else (xui_nodes_master_ref.json.obj | default([]) | list)
+      }}
+
+- name: Build name -> master node id map (for probe + per-node inbounds)
+  ansible.builtin.set_fact:
+    xui_master_name_to_node_id: >-
+      {{
+        dict(
+          (xui_nodes_master_rows | default([])
+           | map(attribute='name')
+           | map('string')
+           | list)
+          | zip(xui_nodes_master_rows | default([]) | map(attribute='id') | list)
+          | list
+        )
+      }}
+
+- name: Build address -> master node id map (fallback)
+  ansible.builtin.set_fact:
+    xui_master_addr_to_node_id: >-
+      {{
+        dict(
+          (xui_nodes_master_rows | default([])
+           | map(attribute='address')
+           | map('string')
+           | list)
+          | zip(xui_nodes_master_rows | default([]) | map(attribute='id') | list)
+          | list
+        )
+      }}
+
 # Heartbeat/probe can lag right after registration; give jobs a moment then force probe.
 - name: Brief pause before node health probe (heartbeat job interval)
   ansible.builtin.pause:
@@ -58,19 +95,17 @@
     status_code: 200
     timeout: 90
   vars:
-    xui_probe_addr: "{{ hostvars[item].ansible_host }}"
+    xui_probe_node_name: "node-{{ hostvars[item].ansible_host | replace('.', '-') }}"
+    xui_probe_addr: "{{ hostvars[item].ansible_host | string }}"
     xui_probe_node_id: >-
-      {% set ns = namespace(mid='') %}
-      {% for r in xui_nodes_master_ref.json.obj | default([]) %}
-      {% set r_scheme = r.scheme | default('https', true) %}
-      {% if (ns.mid | length) == 0
-            and r.address | default('', true) | string == (xui_probe_addr | string)
-            and (r.port | default(0) | int) == (xui_node_http_port | int)
-            and (r_scheme | string) == (xui_node_scheme | string) %}
-      {% set ns.mid = r.id | string %}
-      {% endif %}
-      {% endfor %}
-      {{ ns.mid }}
+      {{
+        (
+          (xui_master_name_to_node_id | default({}))[xui_probe_node_name]
+          | default((xui_master_addr_to_node_id | default({}))[xui_probe_addr])
+          | default('')
+        )
+        | string
+      }}
   loop: "{{ groups['nodes'] | sort | list }}"
   when: (xui_probe_node_id | string | trim | length) > 0
   register: xui_probe_nodes_batch
