@@ -149,38 +149,49 @@
           - "{{ xui_pnm_reality_short_id_hex }}"
   when: not (xui_pnm_skip_create | default(false) | bool)
 
+# Explicit tag (same as remark): master+remote resolveInboundTag must agree; empty tag becomes inbound-<port> and can collide with stale rows.
 - name: Create VLESS+REALITY inbound on master bound to remote node
-  ansible.builtin.uri:
-    url: "{{ xui_master_origin }}/panel/panel/api/inbounds/add"
-    method: POST
-    headers:
-      Authorization: "Bearer {{ xui_master_bearer }}"
-      Accept: application/json
-    body_format: json
-    body:
-      up: 0
-      down: 0
-      total: 0
-      remark: "{{ xui_pnm_remark }}"
-      enable: true
-      expiryTime: 0
-      listen: ""
-      port: "{{ xui_pnm_open_port | int }}"
-      protocol: vless
-      settings: "{{ {'clients': [], 'decryption': 'none', 'fallbacks': []} | to_json }}"
-      streamSettings: "{{ xui_pnm_stream_settings_str }}"
-      tag: ""
-      sniffing: "{{ {'enabled': true, 'destOverride': ['http', 'tls', 'quic'], 'metadataOnly': false} | to_json }}"
-      nodeId: "{{ xui_pnm_master_node_id | int }}"
-    status_code: 200
-    timeout: 90
-  register: xui_pnm_inb_create_res
-  no_log: true
-  failed_when:
-    - not (xui_pnm_inb_create_res.skipped | default(false) | bool)
-    - xui_pnm_inb_create_res.json is defined
-    - not (xui_pnm_inb_create_res.json.success | default(false))
-  when: not (xui_pnm_skip_create | default(false) | bool)
+  block:
+    - name: Create VLESS+REALITY inbound on master bound to remote node (POST)
+      ansible.builtin.uri:
+        url: "{{ xui_master_origin }}/panel/panel/api/inbounds/add"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ xui_master_bearer }}"
+          Accept: application/json
+        body_format: json
+        body:
+          up: 0
+          down: 0
+          total: 0
+          remark: "{{ xui_pnm_remark }}"
+          enable: true
+          expiryTime: 0
+          listen: ""
+          port: "{{ xui_pnm_open_port | int }}"
+          protocol: vless
+          settings: "{{ {'clients': [], 'decryption': 'none', 'fallbacks': []} | to_json }}"
+          streamSettings: "{{ xui_pnm_stream_settings_str }}"
+          tag: "{{ xui_pnm_remark }}"
+          sniffing: "{{ {'enabled': true, 'destOverride': ['http', 'tls', 'quic'], 'metadataOnly': false} | to_json }}"
+          nodeId: "{{ xui_pnm_master_node_id | int }}"
+        status_code: 200
+        timeout: 90
+      register: xui_pnm_inb_create_res
+      no_log: true
+      failed_when:
+        - not (xui_pnm_inb_create_res.skipped | default(false) | bool)
+        - xui_pnm_inb_create_res.json is defined
+        - not (xui_pnm_inb_create_res.json.success | default(false))
+      when: not (xui_pnm_skip_create | default(false) | bool)
+  rescue:
+    - name: Report inbounds/add failure (panel JSON msg only)
+      ansible.builtin.fail:
+        msg: >-
+          inbounds/add failed for {{ xui_pnm_inv_host }} (nodeId={{ xui_pnm_master_node_id }}, port={{ xui_pnm_open_port }}):
+          success={{ xui_pnm_inb_create_res.json.success | default('n/a') }},
+          msg={{ xui_pnm_inb_create_res.json.msg | default(xui_pnm_inb_create_res.msg | default('no json')) }}
+      when: not (xui_pnm_skip_create | default(false) | bool)
 
 - name: Record VPN port for this inventory host (UFW on node)
   ansible.builtin.set_fact:
