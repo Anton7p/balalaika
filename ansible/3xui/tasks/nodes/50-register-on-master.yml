@@ -9,7 +9,7 @@
       apiToken: "{{ hostvars[item].xui_node_api_token }}"
       scheme: "{{ xui_node_scheme }}"
       port: "{{ xui_node_http_port | int }}"
-      basePath: "{{ xui_node_panel_base_path }}"
+      basePath: "{{ xui_node_panel_base_path | trim }}"
       remark: ansible-node
   loop: "{{ groups['nodes'] }}"
 
@@ -49,6 +49,26 @@
     fail_msg: "master nodes/list failed: {{ xui_nodes_list_res.json.msg | default('unknown') }}"
 
 - name: Register or update each node on master panel
+  ansible.builtin.include_tasks: tasks/nodes/51-register-one-node-on-master.yml
+  loop: "{{ xui_nodes_register }}"
+  loop_control:
+    loop_var: sync_node
+    label: "{{ sync_node.name }} {{ sync_node.address }}"
+
+# Stale rows (e.g. basePath "/" from older runs) make master call /panel/api/... on the node → HTTP 404. Re-list and patch.
+- name: Refresh master nodes list after registration (for second sync pass)
+  ansible.builtin.uri:
+    url: "{{ xui_master_origin }}/panel/panel/api/nodes/list"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ xui_master_bearer }}"
+      Accept: application/json
+    status_code: 200
+    timeout: 90
+  register: xui_nodes_list_res
+  no_log: true
+
+- name: Second pass — rewrite node basePath + apiToken on master (idempotent)
   ansible.builtin.include_tasks: tasks/nodes/51-register-one-node-on-master.yml
   loop: "{{ xui_nodes_register }}"
   loop_control:
