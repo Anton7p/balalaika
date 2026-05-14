@@ -82,9 +82,14 @@
       }}
   no_log: true
 
-- name: Read Bearer API token via UI session ({{ xui_panel_auth_label }})
+# 3x-ui v3.0.2+: GET .../setting/getApiToken удалён; токены — GET .../setting/apiTokens и POST .../apiTokens/create.
+- name: Reset picked API token fact ({{ xui_panel_auth_label }})
+  ansible.builtin.set_fact:
+    _xui_picked_api_token: ""
+
+- name: List API tokens via UI session ({{ xui_panel_auth_label }})
   ansible.builtin.uri:
-    url: "{{ _xui_origin }}/panel/panel/setting/getApiToken"
+    url: "{{ _xui_origin }}/panel/panel/setting/apiTokens"
     method: GET
     headers:
       Accept: application/json
@@ -93,19 +98,85 @@
       Cookie: "{{ xui_tpl_session_cookie }}"
     status_code: 200
     timeout: 60
-  register: xui_tpl_token_res
+  register: xui_tpl_api_tokens_res
   no_log: true
 
-- name: Assert panel returned API token ({{ xui_panel_auth_label }})
+- name: Assert API tokens list reachable ({{ xui_panel_auth_label }})
   ansible.builtin.assert:
     that:
-      - xui_tpl_token_res.json is defined
-      - xui_tpl_token_res.json.success | default(false)
-      - xui_tpl_token_res.json.obj is defined
-      - (xui_tpl_token_res.json.obj | string | length) > 0
-    fail_msg: "{{ xui_panel_auth_label }} getApiToken failed: {{ xui_tpl_token_res.json.msg | default('unknown') }}"
+      - xui_tpl_api_tokens_res.json is defined
+      - xui_tpl_api_tokens_res.json.success | default(false)
+      - xui_tpl_api_tokens_res.json.obj is defined
+    fail_msg: "{{ xui_panel_auth_label }} setting/apiTokens failed: {{ xui_tpl_api_tokens_res.json.msg | default('unknown') }}"
+
+- name: Pick first enabled API token from list ({{ xui_panel_auth_label }})
+  ansible.builtin.set_fact:
+    _xui_picked_api_token: "{{ item.token | trim }}"
+  loop: "{{ xui_tpl_api_tokens_res.json.obj | default([]) }}"
+  when:
+    - (_xui_picked_api_token | default('', true) | length) == 0
+    - item.enabled | default(true) | bool
+    - (item.token | default('', true) | trim | length) > 0
+  no_log: true
+
+- name: Create API token when list has none ({{ xui_panel_auth_label }})
+  when: (_xui_picked_api_token | default('', true) | trim | length) == 0
+  block:
+    - name: Refresh CSRF for authenticated POST ({{ xui_panel_auth_label }})
+      ansible.builtin.uri:
+        url: "{{ _xui_origin }}/panel/csrf-token"
+        method: GET
+        headers:
+          Accept: application/json
+          User-Agent: "{{ _xui_ua }}"
+          Referer: "{{ _xui_origin }}/panel/"
+          Cookie: "{{ xui_tpl_session_cookie }}"
+        status_code: 200
+        timeout: 60
+      register: xui_tpl_csrf_auth_res
+
+    - name: Require CSRF after login ({{ xui_panel_auth_label }})
+      ansible.builtin.assert:
+        that:
+          - xui_tpl_csrf_auth_res.json.obj is defined
+          - (xui_tpl_csrf_auth_res.json.obj | string | length) > 0
+        fail_msg: "{{ xui_panel_auth_label }} did not return CSRF for apiTokens/create"
+
+    - name: Create named API token via panel UI ({{ xui_panel_auth_label }})
+      ansible.builtin.uri:
+        url: "{{ _xui_origin }}/panel/panel/setting/apiTokens/create"
+        method: POST
+        body_format: json
+        body:
+          name: "{{ xui_panel_api_token_create_name | default('balalaika-ansible-' ~ lookup('pipe', 'date +%s'), true) }}"
+        headers:
+          Accept: application/json
+          Content-Type: application/json
+          X-CSRF-Token: "{{ xui_tpl_csrf_auth_res.json.obj }}"
+          X-Requested-With: XMLHttpRequest
+          User-Agent: "{{ _xui_ua }}"
+          Referer: "{{ _xui_origin }}/panel/"
+          Origin: "{{ _xui_origin }}"
+          Cookie: "{{ xui_tpl_session_cookie }}"
+        status_code: 200
+        timeout: 60
+      register: xui_tpl_create_tok_res
+      no_log: true
+
+    - name: Assert create API token succeeded ({{ xui_panel_auth_label }})
+      ansible.builtin.assert:
+        that:
+          - xui_tpl_create_tok_res.json.success | default(false)
+          - xui_tpl_create_tok_res.json.obj is defined
+          - (xui_tpl_create_tok_res.json.obj.token | default('', true) | trim | length) > 0
+        fail_msg: "{{ xui_panel_auth_label }} apiTokens/create failed: {{ xui_tpl_create_tok_res.json.msg | default('unknown') }}"
+
+    - name: Use freshly created API token ({{ xui_panel_auth_label }})
+      ansible.builtin.set_fact:
+        _xui_picked_api_token: "{{ xui_tpl_create_tok_res.json.obj.token | trim }}"
+      no_log: true
 
 - name: Expose UI session bearer ({{ xui_panel_auth_label }})
   ansible.builtin.set_fact:
-    xui_ui_session_bearer: "{{ xui_tpl_token_res.json.obj | trim }}"
+    xui_ui_session_bearer: "{{ _xui_picked_api_token | trim }}"
   no_log: true

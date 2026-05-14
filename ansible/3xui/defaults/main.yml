@@ -31,8 +31,11 @@ xui_reality_dest: www.yahoo.com:443
 xui_reality_server_names:
   - www.yahoo.com
 
-# User-Agent для UI-запросов с контроллера (CSRF → login → getApiToken). Переопределите, если WAF режет не-браузерные UA.
+# User-Agent для UI-запросов с контроллера (CSRF → login → API token). Переопределите, если WAF режет не-браузерные UA.
 # xui_panel_http_user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+# Опционально: имя нового API-токена (3x-ui v3.0.2+), если список пуст. Иначе имя вида balalaika-ansible-<epoch> (lookup pipe — нужен sh на контроллере).
+# xui_panel_api_token_create_name: "my-unique-token-name"
 
 # Nginx: file to inject proxy locations (override if certbot used another vhost).
 xui_nginx_site_path: /etc/nginx/sites-enabled/default
