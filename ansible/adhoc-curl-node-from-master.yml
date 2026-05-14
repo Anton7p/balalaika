@@ -1,0 +1,76 @@
+---
+# One-off: node1 → token from DB; master → curl node API (GET list + POST add form like 3x-ui remote.go).
+- name: Load node1 API token into hostvars
+  hosts: node1
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Read newest enabled api token from x-ui db on disk
+      ansible.builtin.shell: |
+        set -eu
+        python3 <<'PY'
+        import sqlite3
+        c = sqlite3.connect("/opt/infrastructure/panel/db/x-ui.db")
+        rows = list(
+            c.execute(
+                "select token from api_tokens where enabled=1 order by id desc limit 1"
+            )
+        )
+        if not rows:
+            raise SystemExit("no enabled api_tokens rows")
+        print(rows[0][0].strip())
+        PY
+      register: xui_tok_raw
+      changed_when: false
+      no_log: true
+
+    - name: Publish token for next play (no_log)
+      ansible.builtin.set_fact:
+        xui_node_curl_token: "{{ xui_tok_raw.stdout | trim }}"
+      no_log: true
+
+- name: Curl from master to node1 panel
+  hosts: master
+  gather_facts: false
+  tasks:
+    - name: GET inbounds/list (Bearer JSON)
+      ansible.builtin.shell: |
+        set -eu
+        N="{{ hostvars['node1']['ansible_host'] }}"
+        T="{{ hostvars['node1']['xui_node_curl_token'] }}"
+        curl -sS -D - -o /tmp/xui_ib_list.body \
+          -H "Authorization: Bearer ${T}" \
+          -H "Accept: application/json" \
+          "http://${N}:2053/panel/panel/api/inbounds/list" | head -20
+        echo "---- body head ----"
+        head -c 200 /tmp/xui_ib_list.body; echo
+      register: xui_curl_get
+      changed_when: false
+      no_log: true
+
+    - name: Show GET status line only
+      ansible.builtin.debug:
+        msg: "{{ xui_curl_get.stdout_lines | default([]) | select('search', '^HTTP/') | list | first | default('no HTTP line in -D output') }}"
+
+    - name: POST inbounds/add as x-www-form-urlencoded (same as 3x-ui remote wireInbound)
+      ansible.builtin.shell: |
+        set -eu
+        N="{{ hostvars['node1']['ansible_host'] }}"
+        T="{{ hostvars['node1']['xui_node_curl_token'] }}"
+        # minimal payload — panel may reject body; we only need HTTP status vs 404
+        DATA="up=0&down=0&total=0&remark=curl-smoke&enable=false&expiryTime=0&listen=&port=19999&protocol=vless&settings=%7B%22clients%22%3A%5B%5D%2C%22decryption%22%3A%22none%22%2C%22fallbacks%22%3A%5B%5D%7D&streamSettings=%7B%22network%22%3A%22tcp%22%2C%22security%22%3A%22none%22%7D&tag=curl-smoke-19999&sniffing=%7B%22enabled%22%3Atrue%7D"
+        curl -sS -D - -o /tmp/xui_ib_add.body -X POST \
+          -H "Authorization: Bearer ${T}" \
+          -H "Accept: application/json" \
+          -H "Content-Type: application/x-www-form-urlencoded" \
+          --data-binary "${DATA}" \
+          "http://${N}:2053/panel/panel/api/inbounds/add" | head -20
+        echo "---- body head ----"
+        head -c 300 /tmp/xui_ib_add.body; echo
+      register: xui_curl_post
+      changed_when: false
+      no_log: true
+
+    - name: Show POST status line only
+      ansible.builtin.debug:
+        msg: "{{ xui_curl_post.stdout_lines | default([]) | select('search', '^HTTP/') | list | first | default('no HTTP line') }}"
