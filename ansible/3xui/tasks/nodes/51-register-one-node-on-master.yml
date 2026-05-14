@@ -27,7 +27,7 @@
       scheme: "{{ sync_node.scheme }}"
       address: "{{ sync_node.address }}"
       port: "{{ sync_node.port | int }}"
-      basePath: "{{ sync_node.basePath | default('/', true) }}"
+      basePath: "{{ sync_node.basePath | default(xui_node_panel_base_path, true) }}"
       apiToken: "{{ sync_node.apiToken }}"
       enable: true
     headers:
@@ -54,7 +54,7 @@
       scheme: "{{ sync_node.scheme }}"
       address: "{{ sync_node.address }}"
       port: "{{ sync_node.port | int }}"
-      basePath: "{{ sync_node.basePath | default('/', true) }}"
+      basePath: "{{ sync_node.basePath | default(xui_node_panel_base_path, true) }}"
       apiToken: "{{ sync_node.apiToken }}"
       enable: true
     headers:

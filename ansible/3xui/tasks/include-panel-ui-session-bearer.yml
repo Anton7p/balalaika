@@ -3,11 +3,21 @@
 # Учётные данные: xui_vpn_username, xui_vpn_password.
 # Результат: xui_ui_session_bearer — строка API token.
 # Cookie: templates/common/cookie_header.j2
+# 3x-ui v3: POST /panel/login без Cookie из ответа GET /panel/csrf-token даёт 403; нужны Referer/Origin/User-Agent как у браузера.
+- name: Set panel UI HTTP client facts ({{ xui_panel_auth_label }})
+  ansible.builtin.set_fact:
+    _xui_origin: "{{ xui_panel_origin | trim }}"
+    _xui_ua: "{{ xui_panel_http_user_agent | default('Mozilla/5.0 (compatible; balalaika-ansible/1.0)') }}"
+
 - name: Fetch CSRF token ({{ xui_panel_auth_label }})
   ansible.builtin.uri:
-    url: "{{ xui_panel_origin | trim }}/panel/csrf-token"
+    url: "{{ _xui_origin }}/panel/csrf-token"
     method: GET
     timeout: 60
+    headers:
+      Accept: application/json
+      User-Agent: "{{ _xui_ua }}"
+      Referer: "{{ _xui_origin }}/panel/"
   register: xui_tpl_csrf_res
 
 - name: Require CSRF ({{ xui_panel_auth_label }})
@@ -18,18 +28,32 @@
       - (xui_tpl_csrf_res.json.obj | string | length) > 0
     fail_msg: "{{ xui_panel_auth_label }} did not return CSRF token (csrf-token)"
 
+- name: Require session cookie from CSRF ({{ xui_panel_auth_label }})
+  ansible.builtin.assert:
+    that:
+      - xui_tpl_csrf_res.cookies_string is defined
+      - (xui_tpl_csrf_res.cookies_string | length) > 0
+    fail_msg: >-
+      {{ xui_panel_auth_label }}: GET /panel/csrf-token returned no Set-Cookie (cookies_string empty).
+      3x-ui v3 requires the same session cookie on POST /panel/login (see docs/PANEL_INSTALL_MASTER.md).
+
 - name: Log in to panel UI ({{ xui_panel_auth_label }})
   ansible.builtin.uri:
-    url: "{{ xui_panel_origin | trim }}/panel/login"
+    url: "{{ _xui_origin }}/panel/login"
     method: POST
     body_format: form-urlencoded
     body:
       username: "{{ xui_vpn_username }}"
       password: "{{ xui_vpn_password }}"
     headers:
+      Accept: application/json
+      Content-Type: application/x-www-form-urlencoded
       X-CSRF-Token: "{{ xui_tpl_csrf_res.json.obj }}"
       X-Requested-With: XMLHttpRequest
-      Accept: application/json
+      User-Agent: "{{ _xui_ua }}"
+      Referer: "{{ _xui_origin }}/panel/"
+      Origin: "{{ _xui_origin }}"
+      Cookie: "{{ xui_tpl_csrf_res.cookies_string }}"
     status_code: 200
     timeout: 60
   register: xui_tpl_login_res
@@ -41,17 +65,31 @@
       - xui_tpl_login_res.json.success | default(false)
     fail_msg: "{{ xui_panel_auth_label }} login failed: {{ xui_tpl_login_res.json.msg | default('unknown') }}"
 
-- name: Build Cookie header from login Set-Cookie ({{ xui_panel_auth_label }})
+- name: Build Cookie header for authenticated UI requests ({{ xui_panel_auth_label }})
   ansible.builtin.set_fact:
-    xui_tpl_session_cookie: "{{ lookup('template', 'common/cookie_header.j2', template_vars={'xui_cookie_jar': xui_tpl_login_res.cookies | default({}) }) | trim }}"
+    xui_tpl_session_cookie: >-
+      {{
+        lookup(
+          'template',
+          'common/cookie_header.j2',
+          template_vars={
+            'xui_cookie_jar': (
+              xui_tpl_csrf_res.cookies | default({})
+              | combine(xui_tpl_login_res.cookies | default({}))
+            )
+          }
+        ) | trim
+      }}
   no_log: true
 
 - name: Read Bearer API token via UI session ({{ xui_panel_auth_label }})
   ansible.builtin.uri:
-    url: "{{ xui_panel_origin | trim }}/panel/panel/setting/getApiToken"
+    url: "{{ _xui_origin }}/panel/panel/setting/getApiToken"
     method: GET
     headers:
       Accept: application/json
+      User-Agent: "{{ _xui_ua }}"
+      Referer: "{{ _xui_origin }}/panel/"
       Cookie: "{{ xui_tpl_session_cookie }}"
     status_code: 200
     timeout: 60

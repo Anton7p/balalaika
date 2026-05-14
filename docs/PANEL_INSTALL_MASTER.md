@@ -1,6 +1,6 @@
 # Установка панели 3x-ui на master (Ansible)
 
-Целевая версия — **v3.0.1** (см. [`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md)). Автоматизация в репозитории уже реализована: Docker Compose на master, nginx перед панелью, UFW, CLI-учётка, затем на **контроллере** (localhost play) — создание inbound по HTTPS API.
+Целевая версия — **v3.0.2** (см. [`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md)). Автоматизация в репозитории уже реализована: Docker Compose на master, nginx перед панелью, UFW, CLI-учётка, затем на **контроллере** (localhost play) — создание inbound по HTTPS API.
 
 CI: workflow **[`deploy-3xui.yml`](../.github/workflows/deploy-3xui.yml)** с **`target: panel`** или **`all`**.
 
@@ -25,7 +25,7 @@ CI: workflow **[`deploy-3xui.yml`](../.github/workflows/deploy-3xui.yml)** с **
 
 Точка входа плейбука: [`ansible/3xui/deploy-panel.yml`](../ansible/3xui/deploy-panel.yml) (два play: **`master`**, затем **`localhost`**).
 
-Общий сценарий **CSRF → login → Cookie → getApiToken**: [`ansible/3xui/tasks/include-panel-ui-session-bearer.yml`](../ansible/3xui/tasks/include-panel-ui-session-bearer.yml), шаблон Cookie: [`ansible/3xui/templates/common/cookie_header.j2`](../ansible/3xui/templates/common/cookie_header.j2).
+Общий сценарий **CSRF → login → Cookie → getApiToken**: [`ansible/3xui/tasks/include-panel-ui-session-bearer.yml`](../ansible/3xui/tasks/include-panel-ui-session-bearer.yml), шаблон Cookie: [`ansible/3xui/templates/common/cookie_header.j2`](../ansible/3xui/templates/common/cookie_header.j2). Для **v3** обязательно: **`Cookie`** с ответа **GET `/panel/csrf-token`** (в модуле **`uri`** это **`cookies_string`**) на **POST `/panel/login`**, плюс **`Referer` / `Origin` / `User-Agent`**; для **`getApiToken`** в заголовок собираются cookie из ответов CSRF и логина (**`cookies`** объединяются через **`combine`**).
 
 Пины образа и портов: [`ansible/3xui/defaults/main.yml`](../ansible/3xui/defaults/main.yml).
 

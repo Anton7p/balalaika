@@ -16,7 +16,7 @@
 
 Поддерживаются два режима.
 
-1. **Сессия (как UI):** `POST {webBasePath}login` (не под `panel/api/`) с телом JSON (`username`, `password`, при 2FA — `twoFactorCode`). В ответе выставляется cookie; дальше все запросы с заголовком **`Cookie`**. Для «небезопасных» запросов SPA может использовать **`GET {webBasePath}csrf-token`** и заголовок **`X-CSRF-Token`** — поведение зависит от сборки и middleware.
+1. **Сессия (как UI):** сначала **`GET {webBasePath}csrf-token`** — в JSON поле **`obj`** (строка CSRF), в ответе обычно **`Set-Cookie`** (сессия до логина). Затем **`POST {webBasePath}login`** (не под `panel/api/`) с тем же **`Cookie`**, заголовком **`X-CSRF-Token`**, типичными **`Referer` / `Origin` / `User-Agent`**; тело у веб-формы часто **`application/x-www-form-urlencoded`** (`username`, `password`; при 2FA — **`twoFactorCode`**). После успешного логина в ответе снова **`Set-Cookie`**; дальнейшие запросы UI/API с сессией идут с заголовком **`Cookie`**. В **3x-ui v3** запрос логина **без** cookie после CSRF часто даёт **403**. Для REST только с **Bearer API Token** cookie не нужны.
 2. **API Token (программный доступ):** токен из **Настройки → Безопасность → API Token**. На каждый запрос: **`Authorization: Bearer <token>`** и **`Accept: application/json`**. Такие вызовы обходят CSRF и не требуют cookie-сессии. При смене/регенерации токена все клиенты должны получить новое значение.
 
 Быстрый пример (только REST под `panel/api`):
@@ -38,7 +38,7 @@ curl -sS -X GET \
 
 | Метод | Путь (относительно UI) | Описание |
 |--------|-------------------------|----------|
-| POST | `…/login` | Логин; cookie для последующих запросов. Тело JSON: `username`, `password`, `twoFactorCode` (если нужен OTP). |
+| POST | `…/login` | Логин; cookie для последующих запросов. Обычно **`Cookie`** с шага **`csrf-token`** + **`X-CSRF-Token`**; тело чаще **form-urlencoded** (или JSON — зависит от клиента): `username`, `password`, `twoFactorCode` (если нужен OTP). |
 | GET | `…/logout` | Сброс сессии; для не-браузерных клиентов обычно не нужен. |
 | GET | `…/csrf-token` | CSRF для сессии (`obj` — строка). Bearer-клиенты CSRF не требуют. |
 | POST | `…/getTwoFactorEnable` | Включена ли 2FA (`obj`: boolean) — для формы логина. |
