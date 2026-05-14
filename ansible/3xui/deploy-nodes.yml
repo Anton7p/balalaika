@@ -37,6 +37,27 @@
     - ansible.builtin.include_tasks: tasks/nodes/30-ufw.yml
     - ansible.builtin.include_tasks: tasks/nodes/40-node-token.yml
 
+# Same network path as 3x-ui central panel → node (runtime/remote.go): Bearer + /panel/panel/api/…
+- name: Verify node panel API from master host
+  hosts: master
+  gather_facts: false
+  vars_files:
+    - defaults/main.yml
+  tasks:
+    - name: GET inbounds/list on each node from master (Bearer must return 200)
+      ansible.builtin.uri:
+        url: "http://{{ hostvars[item].ansible_host }}:{{ xui_node_http_port }}/panel/panel/api/inbounds/list"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ hostvars[item].xui_node_api_token }}"
+          Accept: application/json
+        status_code: 200
+        timeout: 30
+      loop: "{{ groups['nodes'] | sort }}"
+      loop_control:
+        label: "{{ item }}"
+      register: xui_master_probe_node_api
+
 - name: Register nodes on master panel
   hosts: localhost
   connection: local
