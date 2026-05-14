@@ -28,8 +28,9 @@
       address: "{{ sync_node.address }}"
       port: "{{ sync_node.port | int }}"
       basePath: "{{ (sync_node.basePath | default(xui_node_panel_base_path, true)) | trim }}"
-      apiToken: "{{ sync_node.apiToken }}"
+      apiToken: "{{ sync_node.apiToken | trim }}"
       enable: true
+      allowPrivateAddress: true
     headers:
       Authorization: "Bearer {{ xui_master_bearer }}"
       Accept: application/json
@@ -55,8 +56,9 @@
       address: "{{ sync_node.address }}"
       port: "{{ sync_node.port | int }}"
       basePath: "{{ (sync_node.basePath | default(xui_node_panel_base_path, true)) | trim }}"
-      apiToken: "{{ sync_node.apiToken }}"
+      apiToken: "{{ sync_node.apiToken | trim }}"
       enable: true
+      allowPrivateAddress: true
     headers:
       Authorization: "Bearer {{ xui_master_bearer }}"
       Accept: application/json

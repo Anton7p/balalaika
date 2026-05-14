@@ -109,15 +109,30 @@
       - xui_tpl_api_tokens_res.json.obj is defined
     fail_msg: "{{ xui_panel_auth_label }} setting/apiTokens failed: {{ xui_tpl_api_tokens_res.json.msg | default('unknown') }}"
 
-- name: Pick first enabled API token from list ({{ xui_panel_auth_label }})
+- name: Build sorted enabled API token rows ({{ xui_panel_auth_label }})
   ansible.builtin.set_fact:
-    _xui_picked_api_token: "{{ item.token | trim }}"
-  loop: "{{ xui_tpl_api_tokens_res.json.obj | default([]) }}"
-  when:
-    - (_xui_picked_api_token | default('', true) | length) == 0
-    - item.enabled | default(true) | bool
-    - (item.token | default('', true) | trim | length) > 0
+    _xui_sorted_api_tokens: >-
+      {{
+        xui_tpl_api_tokens_res.json.obj | default([])
+        | selectattr('enabled', 'defined')
+        | selectattr('enabled', 'equalto', true)
+        | selectattr('token', 'defined')
+        | rejectattr('token', 'equalto', '')
+        | list
+        | sort(attribute='id')
+      }}
   no_log: true
+
+- name: Pick newest enabled API token by id ({{ xui_panel_auth_label }})
+  ansible.builtin.set_fact:
+    _xui_picked_api_token: "{{ (_xui_sorted_api_tokens | last).token | trim }}"
+  when: (_xui_sorted_api_tokens | default([]) | length) > 0
+  no_log: true
+
+- name: Clear picked API token when no enabled rows ({{ xui_panel_auth_label }})
+  ansible.builtin.set_fact:
+    _xui_picked_api_token: ""
+  when: (_xui_sorted_api_tokens | default([]) | length) == 0
 
 - name: Create API token when list has none ({{ xui_panel_auth_label }})
   when: (_xui_picked_api_token | default('', true) | trim | length) == 0
