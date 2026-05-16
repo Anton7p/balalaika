@@ -58,16 +58,15 @@ export class LoadBalancerService {
   }
 
   clientLimitPerInbound(): number {
-    const raw = this.config.get<string>('VPN_INBOUND_CLIENT_LIMIT');
-    if (raw !== undefined && raw.trim().length > 0) {
-      const n = Number.parseInt(raw, 10);
+    const v = this.config.get<string | number>('VPN_INBOUND_CLIENT_LIMIT');
+    if (typeof v === 'number' && Number.isFinite(v) && v > 0) {
+      return Math.floor(v);
+    }
+    if (typeof v === 'string' && v.trim().length > 0) {
+      const n = Number.parseInt(v.trim(), 10);
       if (!Number.isNaN(n) && n > 0) {
         return n;
       }
-    }
-    const num = this.config.get<number>('VPN_INBOUND_CLIENT_LIMIT');
-    if (typeof num === 'number' && Number.isFinite(num) && num > 0) {
-      return Math.floor(num);
     }
     return 200;
   }
