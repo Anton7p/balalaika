@@ -4,6 +4,8 @@
   hosts: master
   become: true
   gather_facts: true
+  vars_files:
+    - defaults/main.yml
   vars:
     deploy_root: "{{ lookup('env', 'DEPLOY_ROOT') | default('/opt/infrastructure', true) }}"
     app_dir: "{{ deploy_root }}/app"
@@ -15,6 +17,8 @@
     telegram_admin_id: "{{ lookup('env', 'TELEGRAM_ADMIN_ID') | default('', true) }}"
     encryption_key: "{{ lookup('env', 'ENCRYPTION_KEY') }}"
     app_db_password: "{{ lookup('env', 'APP_DB_PASSWORD') | default(vpn_admin_password, true) }}"
+    vpn_working_inbound_ids: "{{ lookup('env', 'VPN_WORKING_INBOUND_IDS') | default(vpn_working_inbound_ids, true) }}"
+    vpn_inbound_client_limit: "{{ lookup('env', 'VPN_INBOUND_CLIENT_LIMIT') | default(vpn_inbound_client_limit, true) }}"
   pre_tasks:
     - name: Validate required bot deploy variables
       ansible.builtin.assert:

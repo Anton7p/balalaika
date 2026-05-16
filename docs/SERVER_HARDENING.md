@@ -87,4 +87,4 @@
 
 ## Связь с документацией по панели
 
-Сборка **3x-ui** в **`ansible/3xui/`**: на **master** панель в Docker слушает **127.0.0.1:2053**, снаружи — **nginx:443** под **`DOMAIN_NAME`** (см. **[`PANEL_INSTALL_MASTER.md`](PANEL_INSTALL_MASTER.md)**). Плейбук открывает в UFW порт **VPN inbound** (`xui_inbound_port`, по умолчанию 8443). Ноды и регистрация на master — **[`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md)**.
+Сборка **3x-ui** в **`ansible/3xui/`**: на **master** панель в Docker слушает **127.0.0.1:2053**, снаружи — **nginx:443** под **`DOMAIN_NAME`** (см. **[`PANEL_INSTALL_MASTER.md`](PANEL_INSTALL_MASTER.md)**). Плейбук открывает в UFW порт **VPN inbound** (`xui_inbound_port`, по умолчанию 8443). Ноды и регистрация на master — **[`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md)**. Пользовательский трафик VPN — на **ноды** (канон: **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)**).

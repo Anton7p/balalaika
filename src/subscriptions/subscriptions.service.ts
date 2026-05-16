@@ -69,13 +69,16 @@ export class SubscriptionsService {
         expiresAt: true,
         panelClientUuid: true,
         panelSubId: true,
+        panelInboundId: true,
       },
     });
 
     const canExtend =
       activeRow !== null &&
       (activeRow.panelClientUuid?.length ?? 0) > 0 &&
-      (activeRow.panelSubId?.length ?? 0) > 0;
+      (activeRow.panelSubId?.length ?? 0) > 0 &&
+      activeRow.panelInboundId !== null &&
+      activeRow.panelInboundId > 0;
 
     let subscriptionId: string;
     let expiresAt: Date;
@@ -91,6 +94,7 @@ export class SubscriptionsService {
         {
           clientUuid: activeRow.panelClientUuid as string,
           subId: activeRow.panelSubId as string,
+          panelInboundId: activeRow.panelInboundId as number,
         },
       );
       keyPlain = provisioned.connectionUri;
@@ -104,6 +108,7 @@ export class SubscriptionsService {
           expiresAt,
           panelClientUuid: provisioned.panelClientUuid,
           panelSubId: provisioned.panelSubId,
+          panelInboundId: provisioned.panelInboundId,
           expiryReminderSentAt: null,
           subscriptionEndedNotifiedAt: null,
         },
@@ -132,6 +137,7 @@ export class SubscriptionsService {
               expiresAt,
               panelClientUuid: provisioned.panelClientUuid,
               panelSubId: provisioned.panelSubId,
+              panelInboundId: provisioned.panelInboundId,
             },
             select: { id: true },
           });

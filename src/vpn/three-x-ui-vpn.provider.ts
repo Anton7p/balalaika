@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import dayjs from 'dayjs';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { firstValueFrom } from 'rxjs';
+import type { AxiosResponse } from 'axios';
 import type {
   VpnAdminProvider,
   VpnNodeStatus,
@@ -14,9 +15,15 @@ import type {
   VpnClientCreated,
   VpnProvider,
 } from './vpn-provider.interface';
+import { LoadBalancerService } from './load-balancer.service';
 
 interface PanelMsg {
   readonly success?: boolean;
+  readonly msg?: string;
+}
+
+interface PanelCsrfBody {
+  readonly obj?: string;
 }
 
 /** TCP REALITY + VLESS в 3x-ui ожидают этот flow на клиенте. */
@@ -24,8 +31,9 @@ const VLESS_FLOW_XTLS_RPRX_VISION = 'xtls-rprx-vision' as const;
 
 /** Базовый путь веб-UI 3x-ui (типичный webBasePath). */
 const DEFAULT_XUI_WEB_BASE_PATH = '/panel/';
-/** Id inbound в 3x-ui для addClient/updateClient: env VPN_PANEL_INBOUND_ID или по умолчанию 1. */
-const DEFAULT_XUI_INBOUND_ID = 1;
+
+const PANEL_HTTP_USER_AGENT =
+  'Mozilla/5.0 (compatible; balalaika-bot/1.0)';
 
 /** Фраза + "-" + telegram id в поле email панели (без @домена). Латиница для совместимости с клиентами. */
 const SUB_EMAIL_PHRASES = [
@@ -49,10 +57,12 @@ const SUB_EMAIL_PHRASES = [
 @Injectable()
 export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
   private cookieHeader = '';
+  private sessionLoggedIn = false;
 
   constructor(
     private readonly config: ConfigService,
     private readonly http: HttpService,
+    private readonly loadBalancer: LoadBalancerService,
   ) {}
 
   private get panelOrigin(): string {
@@ -69,19 +79,10 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     return withSlash.endsWith('/') ? withSlash : `${withSlash}/`;
   }
 
-  private get inboundId(): number {
-    const raw = this.config.get<string>('VPN_PANEL_INBOUND_ID');
-    if (raw !== undefined && raw.trim().length > 0) {
-      const n = Number.parseInt(raw, 10);
-      if (!Number.isNaN(n) && n > 0) {
-        return n;
-      }
-    }
-    const num = this.config.get<number>('VPN_PANEL_INBOUND_ID');
-    if (typeof num === 'number' && Number.isFinite(num) && num > 0) {
-      return Math.floor(num);
-    }
-    return DEFAULT_XUI_INBOUND_ID;
+  private apiPath(suffix: string): string {
+    const baseNoTrail = this.webBasePath.replace(/\/+$/, '');
+    const path = suffix.startsWith('/') ? suffix : `/${suffix}`;
+    return `${this.panelOrigin}${baseNoTrail}${path}`;
   }
 
   private get adminUsername(): string {
@@ -98,6 +99,18 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
       throw new Error('VPN_ADMIN_PASSWORD is required for 3x-ui adapter');
     }
     return raw;
+  }
+
+  private uiHeaders(extra?: Record<string, string>): Record<string, string> {
+    return {
+      Accept: 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'User-Agent': PANEL_HTTP_USER_AGENT,
+      Referer: `${this.panelOrigin}/panel/`,
+      Origin: this.panelOrigin,
+      ...(this.cookieHeader.length > 0 ? { Cookie: this.cookieHeader } : {}),
+      ...extra,
+    };
   }
 
   private absorbSetCookie(header?: string | string[]): void {
@@ -131,12 +144,74 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
       .join('; ');
   }
 
+  private absorbResponseCookies(res: AxiosResponse<unknown>): void {
+    this.absorbSetCookie(res.headers['set-cookie']);
+  }
+
+  private resetPanelSession(): void {
+    this.cookieHeader = '';
+    this.sessionLoggedIn = false;
+  }
+
+  private async fetchCsrfToken(): Promise<string> {
+    const url = `${this.panelOrigin}/panel/csrf-token`;
+    const res = await firstValueFrom(
+      this.http.get<PanelCsrfBody>(url, {
+        headers: this.uiHeaders(),
+        timeout: 20000,
+        validateStatus: (s) => s === 200,
+      }),
+    );
+    this.absorbResponseCookies(res);
+    const token = res.data.obj;
+    if (token === undefined || String(token).length === 0) {
+      throw new Error('3x-ui csrf-token: empty obj');
+    }
+    return String(token);
+  }
+
+  /** 3x-ui v3: GET csrf-token → cookie → POST login с X-CSRF-Token. */
+  private async ensurePanelSession(): Promise<void> {
+    if (this.sessionLoggedIn) {
+      return;
+    }
+    const csrf = await this.fetchCsrfToken();
+    const body = new URLSearchParams({
+      username: this.adminUsername,
+      password: this.adminPassword,
+    });
+    const loginUrl = `${this.panelOrigin}/panel/login`;
+    const res = await firstValueFrom(
+      this.http.post<PanelMsg>(loginUrl, body.toString(), {
+        headers: {
+          ...this.uiHeaders(),
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRF-Token': csrf,
+        },
+        timeout: 20000,
+        validateStatus: (s) => s === 200,
+      }),
+    );
+    this.absorbResponseCookies(res);
+    if (res.data.success !== true) {
+      throw new Error(
+        `3x-ui login failed: ${typeof res.data.msg === 'string' ? res.data.msg : 'unknown'}`,
+      );
+    }
+    this.sessionLoggedIn = true;
+  }
+
+  /** Свежий CSRF для mutating POST (addClient, updateClient). */
+  private async csrfForAuthenticatedPost(): Promise<string> {
+    await this.ensurePanelSession();
+    return await this.fetchCsrfToken();
+  }
+
   private pickSubEmailPhrase(): string {
     const i = Math.floor(Math.random() * SUB_EMAIL_PHRASES.length);
     return SUB_EMAIL_PHRASES[i] ?? SUB_EMAIL_PHRASES[0];
   }
 
-  /** Идентификатор клиента в панели (поле email): `{фраза}-{telegramId}`; без tg — `{фраза}-anon-{hex}`. Без домена. */
   private panelClientEmail(params: VpnClientCreateParams): string {
     const phrase = this.pickSubEmailPhrase();
     if (params.telegramUserId !== undefined) {
@@ -159,7 +234,6 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     return Number(id);
   }
 
-  /** Срок окончания в мс (поле expiryTime панели); та же логика месяцев, что и SubscriptionsService.computeExpiryEnd. */
   private expiryEndEpochMs(planMonths: number, baseEpochMs: number): number {
     let d = dayjs(baseEpochMs);
     if (planMonths === 0) {
@@ -174,75 +248,135 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     return d.valueOf();
   }
 
-  private buildSubscriptionUri(panelSubId: string): string {
-    const domain = this.config.get<string>('DOMAIN_NAME') ?? '';
-    let uri = `${this.panelOrigin}/sub/${panelSubId}`;
-    if (domain.length > 0) {
-      uri = `https://${domain}/sub/${panelSubId}`;
+  private extractFirstVlessUri(obj: unknown): string | undefined {
+    if (obj === null || obj === undefined) {
+      return undefined;
     }
-    return uri;
+    if (typeof obj === 'string') {
+      const direct = obj.match(/vless:\/\/[^\s"'<>]+/);
+      if (direct) {
+        return direct[0];
+      }
+      try {
+        return this.extractFirstVlessUri(JSON.parse(obj) as unknown);
+      } catch {
+        return undefined;
+      }
+    }
+    if (Array.isArray(obj)) {
+      for (const item of obj) {
+        const v = this.extractFirstVlessUri(item);
+        if (v !== undefined) {
+          return v;
+        }
+      }
+      return undefined;
+    }
+    if (typeof obj === 'object') {
+      for (const v of Object.values(obj as Record<string, unknown>)) {
+        const x = this.extractFirstVlessUri(v);
+        if (x !== undefined) {
+          return x;
+        }
+      }
+    }
+    return undefined;
   }
 
-  /** 3x-ui: admin login via form POST, дальше cookie-сессия для API. */
-  private async ensurePanelSession(): Promise<void> {
-    const body = new URLSearchParams({
-      username: this.adminUsername,
-      password: this.adminPassword,
-    });
-    const loginUrl = `${this.panelOrigin}${this.webBasePath.replace(/\/+$/, '')}/login`;
+  private countClientsInSettingsJson(settingsJson: string): number {
+    const settings = JSON.parse(settingsJson) as { clients?: unknown };
+    if (!Array.isArray(settings.clients)) {
+      return 0;
+    }
+    return settings.clients.length;
+  }
+
+  private async fetchInboundClientCount(inboundId: number): Promise<number> {
+    const settingsJson = await this.fetchInboundSettingsJson(inboundId);
+    return this.countClientsInSettingsJson(settingsJson);
+  }
+
+  private async buildClientCountsMap(): Promise<Map<number, number>> {
+    const map = new Map<number, number>();
+    for (const inboundId of this.loadBalancer.workingInboundIds()) {
+      map.set(inboundId, await this.fetchInboundClientCount(inboundId));
+    }
+    return map;
+  }
+
+  private async resolveInboundForNewClient(): Promise<number> {
+    await this.ensurePanelSession();
+    const counts = await this.buildClientCountsMap();
+    const picked = this.loadBalancer.pickInboundForNewClient(counts);
+    if (picked === undefined) {
+      const limit = this.loadBalancer.clientLimitPerInbound();
+      const ids = this.loadBalancer.workingInboundIds().join(',');
+      throw new Error(
+        `3x-ui: all working inbounds full (limit ${String(limit)} per inbound): ${ids}`,
+      );
+    }
+    return picked.inboundId;
+  }
+
+  private async fetchVlessUriForClient(
+    inboundId: number,
+    email: string,
+  ): Promise<string> {
+    await this.ensurePanelSession();
+    const enc = encodeURIComponent(email);
+    const url = this.apiPath(
+      `/panel/api/inbounds/getClientLinks/${inboundId}/${enc}`,
+    );
     const res = await firstValueFrom(
-      this.http.post<PanelMsg>(loginUrl, body.toString(), {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Cookie: this.cookieHeader,
-          Accept: 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-        },
-        timeout: 20000,
+      this.http.get<unknown>(url, {
+        headers: this.uiHeaders(),
+        timeout: 25000,
         validateStatus: (s) => s === 200,
       }),
     );
-    this.absorbSetCookie(res.headers['set-cookie']);
-    if (res.data.success !== true) {
+    const data = res.data as { success?: boolean; msg?: string; obj?: unknown };
+    if (data.success !== true) {
       throw new Error(
-        '3x-ui login failed (check VPN_ADMIN_* credentials and web base path)',
+        `3x-ui getClientLinks failed: ${typeof data.msg === 'string' ? data.msg : 'unknown'}`,
       );
     }
+    const vless = this.extractFirstVlessUri(data.obj);
+    if (vless === undefined || vless.length === 0) {
+      throw new Error('3x-ui getClientLinks: no vless URI in response');
+    }
+    return vless;
   }
 
   private async postInboundAddClient(
+    inboundId: number,
     body: Record<string, unknown>,
   ): Promise<void> {
-    const baseNoTrail = this.webBasePath.replace(/\/+$/, '');
-    const url = `${this.panelOrigin}${baseNoTrail}/panel/api/inbounds/addClient`;
+    const csrf = await this.csrfForAuthenticatedPost();
+    const url = this.apiPath('/panel/api/inbounds/addClient');
     const res = await firstValueFrom(
       this.http.post<PanelMsg>(url, body, {
         headers: {
+          ...this.uiHeaders(),
           'Content-Type': 'application/json',
-          Cookie: this.cookieHeader,
-          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-Token': csrf,
         },
         timeout: 25000,
         validateStatus: (s) => s === 200,
       }),
     );
     if (res.data.success !== true) {
-      throw new Error('3x-ui addClient rejected');
+      throw new Error(
+        `3x-ui addClient rejected: ${typeof res.data.msg === 'string' ? res.data.msg : 'unknown'}`,
+      );
     }
   }
 
-  private async fetchInboundSettingsJson(): Promise<string> {
-    const inboundId = this.inboundId;
+  private async fetchInboundSettingsJson(inboundId: number): Promise<string> {
     await this.ensurePanelSession();
-    const baseNoTrail = this.webBasePath.replace(/\/+$/, '');
-    const url = `${this.panelOrigin}${baseNoTrail}/panel/api/inbounds/get/${inboundId}`;
+    const url = this.apiPath(`/panel/api/inbounds/get/${inboundId}`);
     const res = await firstValueFrom(
       this.http.get<unknown>(url, {
-        headers: {
-          Cookie: this.cookieHeader,
-          Accept: 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-        },
+        headers: this.uiHeaders(),
         timeout: 25000,
         validateStatus: (s) => s === 200,
       }),
@@ -284,29 +418,37 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     clientUuid: string,
     body: Record<string, unknown>,
   ): Promise<void> {
-    const baseNoTrail = this.webBasePath.replace(/\/+$/, '');
-    const url = `${this.panelOrigin}${baseNoTrail}/panel/api/inbounds/updateClient/${encodeURIComponent(clientUuid)}`;
+    const csrf = await this.csrfForAuthenticatedPost();
+    const url = this.apiPath(
+      `/panel/api/inbounds/updateClient/${encodeURIComponent(clientUuid)}`,
+    );
     const res = await firstValueFrom(
       this.http.post<PanelMsg>(url, body, {
         headers: {
+          ...this.uiHeaders(),
           'Content-Type': 'application/json',
-          Cookie: this.cookieHeader,
-          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-Token': csrf,
         },
         timeout: 25000,
         validateStatus: (s) => s === 200,
       }),
     );
     if (res.data.success !== true) {
-      throw new Error('3x-ui updateClient rejected');
+      throw new Error(
+        `3x-ui updateClient rejected: ${typeof res.data.msg === 'string' ? res.data.msg : 'unknown'}`,
+      );
     }
   }
 
   async extendClientExpiry(
     params: VpnClientExtendParams,
-  ): Promise<{ connectionUri: string; panelExpiryEpochMs: number }> {
-    const inboundId = this.inboundId;
-    const settingsJson = await this.fetchInboundSettingsJson();
+  ): Promise<{
+    connectionUri: string;
+    panelExpiryEpochMs: number;
+    panelInboundId: number;
+  }> {
+    const inboundId = params.panelInboundId;
+    const settingsJson = await this.fetchInboundSettingsJson(inboundId);
     const clientObj = this.extractClientSettingsObject(
       settingsJson,
       params.clientUuid,
@@ -335,27 +477,40 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     };
 
     const run = async () => {
-      await this.ensurePanelSession();
       await this.postInboundUpdateClient(params.clientUuid, body);
     };
 
     try {
       await run();
     } catch {
-      this.cookieHeader = '';
+      this.resetPanelSession();
       await run();
     }
 
+    const email = String(clientObj.email ?? '').trim();
+    if (email.length === 0) {
+      throw new Error(
+        '3x-ui extendClient: client email missing for getClientLinks',
+      );
+    }
+    let connectionUri: string;
+    try {
+      connectionUri = await this.fetchVlessUriForClient(inboundId, email);
+    } catch {
+      this.resetPanelSession();
+      connectionUri = await this.fetchVlessUriForClient(inboundId, email);
+    }
     return {
-      connectionUri: this.buildSubscriptionUri(params.panelSubId),
+      connectionUri,
       panelExpiryEpochMs: newExpiryMs,
+      panelInboundId: inboundId,
     };
   }
 
   async createClient(
     params: VpnClientCreateParams,
   ): Promise<VpnClientCreated> {
-    const inboundId = this.inboundId;
+    const inboundId = await this.resolveInboundForNewClient();
     const clientUuid = randomUUID();
     const email = this.panelClientEmail(params);
     const subId = randomBytes(8).toString('hex');
@@ -386,8 +541,7 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     };
 
     const run = async () => {
-      await this.ensurePanelSession();
-      await this.postInboundAddClient({
+      await this.postInboundAddClient(inboundId, {
         id: inboundId,
         settings: JSON.stringify(settingsObj),
       });
@@ -396,15 +550,23 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     try {
       await run();
     } catch {
-      this.cookieHeader = '';
+      this.resetPanelSession();
       await run();
     }
 
+    let connectionUri: string;
+    try {
+      connectionUri = await this.fetchVlessUriForClient(inboundId, email);
+    } catch {
+      this.resetPanelSession();
+      connectionUri = await this.fetchVlessUriForClient(inboundId, email);
+    }
     return {
-      connectionUri: this.buildSubscriptionUri(subId),
+      connectionUri,
       panelClientUuid: clientUuid,
       panelSubId: subId,
       panelExpiryEpochMs,
+      panelInboundId: inboundId,
     };
   }
 

@@ -14,20 +14,25 @@ export class VpnProvisioningService {
     planMonths: number,
     telegramUserId: bigint | undefined,
     limitIp: number,
-    existing?: Readonly<{ clientUuid: string; subId: string }>,
+    existing?: Readonly<{
+      clientUuid: string;
+      subId: string;
+      panelInboundId: number;
+    }>,
   ): Promise<{
     connectionUri: string;
     panelClientUuid: string;
     panelSubId: string;
     panelExpiryEpochMs: number;
+    panelInboundId: number;
   }> {
-    const target = this.loadBalancer.selectTarget();
-    const label = `${target.nodeId}:${planMonths}`;
+    const label = `inbound:${existing?.panelInboundId ?? 'new'}:${planMonths}`;
     if (existing !== undefined) {
-      const { connectionUri, panelExpiryEpochMs } =
+      const { connectionUri, panelExpiryEpochMs, panelInboundId } =
         await this.vpn.extendClientExpiry({
           clientUuid: existing.clientUuid,
           panelSubId: existing.subId,
+          panelInboundId: existing.panelInboundId,
           planMonths,
           limitIp,
           telegramUserId,
@@ -37,17 +42,36 @@ export class VpnProvisioningService {
         panelClientUuid: existing.clientUuid,
         panelSubId: existing.subId,
         panelExpiryEpochMs,
+        panelInboundId,
       };
     }
-    return await this.vpn.createClient({
+    const created = await this.vpn.createClient({
       label,
       planMonths,
       limitIp,
       telegramUserId,
     });
+    return {
+      connectionUri: created.connectionUri,
+      panelClientUuid: created.panelClientUuid,
+      panelSubId: created.panelSubId,
+      panelExpiryEpochMs: created.panelExpiryEpochMs,
+      panelInboundId: created.panelInboundId,
+    };
   }
 
   async probeVpnIntegration(): Promise<boolean> {
     return this.vpn.probeIntegration();
+  }
+
+  /** Для админ-диагностики: порядок рабочих inbound и лимит из env. */
+  routingConfig(): {
+    workingInboundIds: readonly number[];
+    clientLimitPerInbound: number;
+  } {
+    return {
+      workingInboundIds: this.loadBalancer.workingInboundIds(),
+      clientLimitPerInbound: this.loadBalancer.clientLimitPerInbound(),
+    };
   }
 }

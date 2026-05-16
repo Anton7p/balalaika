@@ -10,6 +10,10 @@ CI собирает образ приложения, пушит в **GHCR**, з�
 
 Секреты: **`MASTER_IP`**, **`SSH_PRIVATE_KEY`**, **`DOMAIN_NAME`**, **`VPN_ADMIN_USERNAME`**, **`VPN_ADMIN_PASSWORD`**, **`TELEGRAM_BOT_TOKEN`**, **`TELEGRAM_ADMIN_ID`**, **`ENCRYPTION_KEY`**, плюс **`GITHUB_TOKEN`** / actor для pull образа на сервере. Полный список имён: **[`GITHUB_SECRETS.md`](GITHUB_SECRETS.md)**.
 
+## VPN и панель (правила репозитория)
+
+Целевая модель: **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)** — master только для API и учёта, пользователю **`vless://` на ноду**, пулы **рабочих / запасных** нод, failover вручную или отдельным кодом (**вариант A**). В окружении приложения: **`VPN_PANEL_URL`**, **`VPN_WORKING_INBOUND_IDS`**, **`VPN_INBOUND_CLIENT_LIMIT`** (шаблон [`ansible/bot/templates/app.env.j2`](../ansible/bot/templates/app.env.j2), дефолты [`ansible/bot/defaults/main.yml`](../ansible/bot/defaults/main.yml) — **не** новые секреты GitHub). **`DOMAIN_NAME`** в CI — прежде всего для TLS/nginx master и сценариев деплоя, не как обязательный хост в пользовательском VPN.
+
 ## Ansible
 
 | Что | Путь |

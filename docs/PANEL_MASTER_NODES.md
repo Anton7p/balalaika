@@ -11,6 +11,8 @@
 
 Подробнее по секретам: [`GITHUB_SECRETS.md`](GITHUB_SECRETS.md). Подключение к master по SSH: [`AGENT_INFRA.md`](AGENT_INFRA.md). REST панели: [`PANEL_REST_API.md`](PANEL_REST_API.md).
 
+**Продуктовая модель (пулы нод, `vless://`, failover):** единый источник правил — **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)**. Инвентарь **`NODE_IPS`** может включать и **рабочие**, и **запасные** ноды; кто в каком пуле — ведётся **операционно** (таблица id inbound / id ноды / IP), не обязательно пара 1:1.
+
 **Автоматизация:** GitHub Actions workflow **[`deploy-3xui.yml`](../.github/workflows/deploy-3xui.yml)** — вручную, параметр **target**: `panel` (только master), `nodes` (только ноды, без SSH на master), `all` (сначала панель, затем ноды). Реализация: каталог **`ansible/3xui/`** (`deploy-panel.yml`, `deploy-nodes.yml`, `tasks/panel/`, `tasks/nodes/`, общий **`tasks/include-panel-ui-session-bearer.yml`**). Пошаговое описание установки панели на master: **[`PANEL_INSTALL_MASTER.md`](PANEL_INSTALL_MASTER.md)**.
 
 При регистрации ноды на master в API передаётся **`basePath`**: по умолчанию **`xui_node_panel_base_path`** (= **`xui_web_base_path`**, обычно **`/panel/`**), чтобы URL пробы master совпадал с **`webBasePath`** на ноде. Переопределите в **`ansible/3xui/defaults/main.yml`** или через `-e`, если на ноде другой base path.
@@ -26,7 +28,7 @@
 По умолчанию в **`ansible/3xui/defaults/main.yml`**: **`xui_create_per_node_inbounds: true`**. После регистрации нод на master плейбук **`deploy-nodes.yml`** создаёт на **центральной панели** отдельный VLESS+REALITY inbound с полем **`nodeId`** (трафик на Xray этой ноды). **Remark** вида **`{{ xui_per_node_inbound_remark_prefix }}-203-0-113-10`** (IP с дефисами), чтобы в списке было видно, какая нода. Порты на панели **уникальны глобально**: назначаются как **`xui_per_node_inbound_port_base`** (по умолчанию **9443**) + порядковый индекс ноды после сортировки имён в **`[nodes]`**; на самой ноде в UFW открывается соответствующий TCP-порт.
 
 - **`xui_create_default_local_inbound`** (по умолчанию **true**) — старый одиночный inbound на master (порт **`xui_inbound_port`**, remark **`xui_inbound_remark`**). Если весь пользовательский трафик только через ноды, поставьте **`false`** (через `-e` или правку defaults), чтобы не плодить лишний локальный inbound.
-- Приложение бота по-прежнему шлёт клиентов в **один** inbound; задайте его id в окружении **`VPN_PANEL_INBOUND_ID`** (см. комментарий в **`src/vpn/three-x-ui-vpn.provider.ts`**). Роутинг по нескольким inbound из бота пока не автоматизирован.
+- Бот: список рабочих inbound **`VPN_WORKING_INBOUND_IDS`**, лимит **`VPN_INBOUND_CLIENT_LIMIT`**, выбор и CSRF — **`src/vpn/load-balancer.service.ts`**, **`src/vpn/three-x-ui-vpn.provider.ts`**. Запасные ноды и failover — вручную, **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)** §3.2–3.3, §6.
 
 Подробнее про отказ ноды, ручное переключение и ограничения: **[`VPN_NODES_AND_FAILOVER.md`](VPN_NODES_AND_FAILOVER.md)**.
 

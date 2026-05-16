@@ -6,7 +6,7 @@
 
 ---
 
-`DOMAIN_NAME` — публичный домен master (TLS, URL в конфигурации).
+`DOMAIN_NAME` — публичный домен master (**TLS, nginx, Ansible/CI** к панели). Не смешивать с пользовательским endpoint VPN: по канонам репозитория **`vless://`** — на **ноды**, см. **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)**.
 
 `ENCRYPTION_KEY` — ключ шифрования чувствительных данных приложения.
 
@@ -31,3 +31,5 @@
 `VPN_ADMIN_PASSWORD` — пароль учётной записи панели 3x-ui; при деплое бота же используется как пароль Postgres приложения, если в окружении не задан отдельный `APP_DB_PASSWORD`.
 
 `VPN_ADMIN_USERNAME` — имя пользователя панели 3x-ui.
+
+**Не секреты GitHub** (задаются в репозитории / `.env` на master при деплое бота, см. [`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md) §7): **`VPN_WORKING_INBOUND_IDS`**, **`VPN_INBOUND_CLIENT_LIMIT`**, устаревший одиночный **`VPN_PANEL_INBOUND_ID`**.

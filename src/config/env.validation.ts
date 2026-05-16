@@ -122,7 +122,22 @@ export class EnvVars {
   @IsNotEmpty()
   VPN_PANEL_URL!: string;
 
-  /** Числовой id inbound в 3x-ui для addClient/updateClient; по умолчанию 1. Нужен при нескольких inbound (например по нодам). */
+  /**
+   * Упорядоченный список id inbound на master для новых клиентов (через запятую).
+   * Пример: `3,4`. См. docs/VPN_OPERATING_MODEL.md. Не секрет GitHub — в .env на сервере.
+   */
+  @IsOptional()
+  @IsString()
+  VPN_WORKING_INBOUND_IDS?: string;
+
+  /** Макс. клиентов на один рабочий inbound; при достижении — следующий id из списка. */
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(1000000)
+  VPN_INBOUND_CLIENT_LIMIT?: number;
+
+  /** Устаревший одиночный id; используется, если VPN_WORKING_INBOUND_IDS не задан. */
   @IsOptional()
   @IsNumber()
   @Min(1)

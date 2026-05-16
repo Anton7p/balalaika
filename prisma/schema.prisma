@@ -31,6 +31,8 @@ model Subscription {
   panelClientUuid  String?  @map("panel_client_uuid")
   /// subId подписки (не меняется при продлении).
   panelSubId       String?  @map("panel_sub_id")
+  /// Id inbound на master (3x-ui), в котором создан клиент.
+  panelInboundId   Int?     @map("panel_inbound_id")
   startsAt         DateTime @default(now()) @map("starts_at")
   expiresAt        DateTime @map("expires_at")
   // Уведомление "осталось не более 24 ч"

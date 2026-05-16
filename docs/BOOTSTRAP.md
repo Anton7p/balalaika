@@ -1,6 +1,6 @@
 # Bootstrap инфраструктуры (master и ноды)
 
-Первичная подготовка хостов Ubuntu: сеть, Docker, SSH с ключом и hardening, на **master** — nginx и TLS для **`DOMAIN_NAME`**. Панель 3x-ui и приложение бота **не** ставятся этим плейбуком.
+Первичная подготовка хостов Ubuntu: сеть, Docker, SSH с ключом и hardening, на **master** — nginx и TLS для **`DOMAIN_NAME`**. Панель 3x-ui и приложение бота **не** ставятся этим плейбуком. Продуктовая модель VPN (ноды, пулы, `vless`): **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)**.
 
 ## Где в репозитории
 

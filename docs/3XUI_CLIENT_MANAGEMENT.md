@@ -1,28 +1,21 @@
-# Клиенты 3x-ui: UI, подписки, автоматизация
+# Клиенты 3x-ui: UI, API и правила репозитория
 
-Краткая шпаргалка по тому, **что панель умеет вручную** и **как это стыкуется с репозиторием**.
+## Канон (продукт)
 
-## Меню inbound (панель 3x-ui)
+Все правила выдачи, пулов нод, failover и **смены приёма новых (`VPN_PANEL_INBOUND_ID`)**: **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)** (разделы **3.1**, **4**).
 
-Типичные действия из UI (раздел клиентов / inbound):
+Кратко: пользователю — **`vless://`** на **эндпоинт ноды**; master — учёт и API для бота; пулы **рабочих** и **запасных** нод; при аварии — **вариант A** (API `copyClients` / аналог, смена **`VPN_PANEL_INBOUND_ID`**, рассылка новых ссылок).
 
-- добавить одного или нескольких клиентов;
-- скопировать клиентов из другого inbound;
-- сброс трафика (одному или всем);
-- экспорт ссылок и **экспорт ссылок — подписка** (subscription URL для приложений);
-- удалить отключённых, экспорт подключений, клонировать, удалить.
+## Что умеет UI панели (ручные операции)
 
-Всё это — **ручные** операции; для бота и CI мы опираемся на **HTTP API** master, а не на SQLite и не на копипаст из UI.
+В меню inbound (клиенты): добавить одного или нескольких; скопировать клиентов из другого inbound; сброс трафика; экспорт ссылок и **подписка** (`/sub/…`); удалить отключённых; экспорт подключений; клонировать; удалить.
 
-## Как мы это планируем в продукте
+Для бота и CI используем **REST API master**, а не ручной копипаст из UI. Справочник эндпоинтов: **[`PANEL_REST_API.md`](PANEL_REST_API.md)**.
 
-Целевая модель выдачи, нод и failover: **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)** (в т.ч. `vless://` vs подписка, master vs ноды).
+## Код приложения
 
-## API и код приложения
-
-- Описание REST панели: **[`PANEL_REST_API.md`](PANEL_REST_API.md)** (в т.ч. клиенты inbound, ссылки, при наличии — подписки в API v3).
-- Создание/продление клиентов из бота: провайдер **`src/vpn/three-x-ui-vpn.provider.ts`**, inbound по **`VPN_PANEL_INBOUND_ID`** (см. **[`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md)**).
+- Провайдер: **`src/vpn/three-x-ui-vpn.provider.ts`**; рабочие inbound и лимит: **`VPN_WORKING_INBOUND_IDS`**, **`VPN_INBOUND_CLIENT_LIMIT`** (§7 **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)**). После `addClient` / `updateClient` — **`getClientLinks`**, первая **`vless://`**.
 
 ## Ansible
 
-Inbounds создаются плейбуками **`ansible/3xui/deploy-panel.yml`** и **`ansible/3xui/deploy-nodes.yml`**; параметры per-node и локального inbound — **`ansible/3xui/defaults/main.yml`**.
+**`ansible/3xui/`** — **`deploy-panel.yml`**, **`deploy-nodes.yml`**; параметры inbound’ов — **`ansible/3xui/defaults/main.yml`**.

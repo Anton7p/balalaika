@@ -1,52 +1,44 @@
-# Ноды 3x-ui, inbound на ноду и отказоустойчивость
+# Ноды, inbound с `nodeId`, пулы и отказоустойчивость
 
-Документ описывает, как в репозитории связаны **master**, **ноды**, **inbound’ы** и **бот**, и что происходит при **падении ноды**. Детали Ansible: [`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md), [`PANEL_INSTALL_MASTER.md`](PANEL_INSTALL_MASTER.md); API панели: [`PANEL_REST_API.md`](PANEL_REST_API.md).
+Краткий документ по связке **master ↔ ноды ↔ бот**. **Канонические правила** (пулы рабочих/запасных, `vless://`, failover, **смена `VPN_PANEL_INBOUND_ID`**, тестовые пороги по числу клиентов): **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)**.
 
-## Архитектура в двух словах
+Ansible и версии: **[`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md)**, **[`PANEL_INSTALL_MASTER.md`](PANEL_INSTALL_MASTER.md)**. REST: **[`PANEL_REST_API.md`](PANEL_REST_API.md)**.
 
-- На **master** и на каждой **ноде** крутится полноценная панель **3x-ui** в Docker (образ `v3.0.2`). Нода регистрируется на master через раздел **Nodes** (`/panel/api/nodes/*`).
-- На **центральной панели** для каждой ноды может быть создан отдельный **VLESS+REALITY** inbound с полем **`nodeId`**: трафик этого inbound обслуживает **Xray на выбранной ноде**, а не локальный Xray master.
-- Ansible по умолчанию создаёт такие inbound’ы при **`xui_create_per_node_inbounds: true`** (см. `ansible/3xui/defaults/main.yml`): remark вида **`balalaika-node-<ip-с-дефисами>`**, порты на панели уникальны (**`xui_per_node_inbound_port_base`** + индекс по отсортированным именам хостов в `[nodes]`), на ноде UFW открывает соответствующий TCP-порт.
+---
 
-## Бот и один «целевой» inbound
+## Архитектура
 
-- Провайдер 3x-ui (`src/vpn/three-x-ui-vpn.provider.ts`) вызывает API **одного** inbound: добавление и продление клиента идут в inbound с id **`VPN_PANEL_INBOUND_ID`**, если переменная задана, иначе используется **id = 1** по умолчанию.
-- Переменная описана в валидации окружения: `src/config/env.validation.ts`.
-- **Несколько inbound’ов (по ноде)** не означают автоматический выбор ноды для каждого пользователя: пока в коде **нет** балансировки по нескольким inbound id и **нет** автоматического failover при падении ноды.
+- На **master** и на каждой **ноде** — панель **3x-ui** в Docker (образ **`v3.0.2`**). Ноды регистрируются на master (**Nodes**, `/panel/api/nodes/*`).
+- На master для каждой ноды из инвентаря Ansible создаёт **отдельный VLESS+REALITY inbound** с **`nodeId`** (трафик обрабатывает **Xray на ноде**). Remark и порты — см. **`ansible/3xui/defaults/main.yml`** (`xui_per_node_inbound_*`, UFW на ноде).
 
-## Если одна из нод упала
+---
 
-**Автоматически** переключить всех пользователей на другую ноду текущая версия бота **не умеет**.
+## Пулы и бот
 
-Практические шаги без доработки кода:
+- **Рабочие ноды** — те, через чьи inbound’ы сейчас идёт (или планируется) прод; **запасные** — подняты и готовы, без массы клиентов до переключения. Пары **1:1 не обязательны**: запасной пул **общий**.
+- **Новые** клиенты: первый inbound из **`VPN_WORKING_INBOUND_IDS`** с числом клиентов **&lt; `VPN_INBOUND_CLIENT_LIMIT`** (`src/vpn/load-balancer.service.ts`). **Продление** — inbound из **`subscriptions.panel_inbound_id`**.
+- Статусы рабочих / запасных и два сценария (лимит vs авария): **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)** §3.2–3.3.
+- Автоматического **failover** в коде **нет**; процедура — §6 канона (`copyClients`, рассылка **`vless://`**).
 
-1. **Починить или заменить ноду**, снова прогнать деплой нод (`deploy-3xui` с `nodes` / `all`), чтобы запись на master и API-токен были актуальны (см. раздел «Нода в UI показывает Offline» в [`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md#нода-в-ui-показывает-offline)).
-2. **В панели** перенести или заново выдать клиентам конфигурацию с **рабочего** inbound (другая нода / другой порт и ключи REALITY).
-3. При смене «основной» ноды для **новых** операций бота выставить в окружении приложения **`VPN_PANEL_INBOUND_ID`** равным числовому id нужного inbound в UI панели.
+---
 
-Имеет смысл заранее договориться об **одном продакшен-inbound id** и держать остальные ноды как резерв или гео-раскладку с ручной/скриптовой миграцией.
+## Если нода «Offline» в панели
 
-## Что нужно для настоящего «переключения само»
+Чаще всего: на master в записи ноды **устаревший API token** или неверный **`basePath`**. См. **[`PANEL_MASTER_NODES.md` — «Нода в UI показывает Offline»](PANEL_MASTER_NODES.md#нода-в-ui-показывает-offline)**.
 
-Потребуется отдельная разработка, например:
+---
 
-- опрос здоровья нод (API master или прямые пробы);
-- политика выбора целевого inbound (или один общий inbound с балансировщиком Xray — по возможностям версии панели);
-- хранение у подписки не только одного привязанного inbound, либо единая точка входа (DNS, свой прокси) поверх нескольких нод.
+## Что нужно для автоматизации failover в коде
 
-Это не входит в текущий объём репозитория, если явно не добавлять задачи и код.
+Отдельная разработка: здоровье нод, выбор запасной из пула, вызов API копирования клиентов, обновление конфига бота, очередь рассылки **`vless://`**. До этого момента — **ручной runbook** в **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)**.
 
-## Связанные переменные Ansible
+---
+
+## Переменные Ansible (напоминание)
 
 | Переменная | Смысл |
 |------------|--------|
-| `xui_create_per_node_inbounds` | Создавать ли на master по inbound на ноду с `nodeId`. |
-| `xui_per_node_inbound_remark_prefix` | Префикс remark; дальше IP с дефисами. |
-| `xui_per_node_inbound_port_base` | Базовый порт первой ноды; следующие +1 (уникальность в БД панели). |
-| `xui_create_default_local_inbound` | Создавать ли ещё один «локальный» inbound на master (порт `xui_inbound_port`). |
-
-## Ссылки
-
-- [`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md) — версия панели, workflow, per-node inbound.
-- [`AGENT_INFRA.md`](AGENT_INFRA.md) — inventory, SSH, запуск Ansible.
-- [`GITHUB_SECRETS.md`](GITHUB_SECRETS.md) — секреты CI.
+| `xui_create_per_node_inbounds` | Inbound на ноду с `nodeId`. |
+| `xui_per_node_inbound_remark_prefix` | Префикс remark. |
+| `xui_per_node_inbound_port_base` | Базовый порт; далее +1 по нодам. |
+| `xui_create_default_local_inbound` | Локальный inbound на master (часто выключают, если весь трафик только с нод). |

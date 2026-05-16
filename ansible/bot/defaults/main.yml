@@ -1,0 +1,9 @@
+---
+# Параметры VPN для бота (не секреты GitHub — попадают в /opt/infrastructure/app/.env).
+# Переопределение при деплое: переменные окружения control node VPN_WORKING_INBOUND_IDS, VPN_INBOUND_CLIENT_LIMIT.
+
+# Id inbound на master в порядке приоритета (после deploy-nodes смотрите UI/API).
+vpn_working_inbound_ids: "3,4"
+
+# Лимит клиентов на inbound; смоук — 1–2, прод — сотни.
+vpn_inbound_client_limit: "200"
