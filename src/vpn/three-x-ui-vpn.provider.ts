@@ -248,39 +248,111 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     return d.valueOf();
   }
 
-  private extractFirstVlessUri(obj: unknown): string | undefined {
+  private collectVlessUris(obj: unknown, out: string[]): void {
     if (obj === null || obj === undefined) {
-      return undefined;
+      return;
     }
     if (typeof obj === 'string') {
-      const direct = obj.match(/vless:\/\/[^\s"'<>]+/);
-      if (direct) {
-        return direct[0];
+      const matches = obj.match(/vless:\/\/[^\s"'<>]+/g);
+      if (matches) {
+        out.push(...matches);
       }
       try {
-        return this.extractFirstVlessUri(JSON.parse(obj) as unknown);
+        this.collectVlessUris(JSON.parse(obj) as unknown, out);
       } catch {
-        return undefined;
+        /* not JSON */
       }
+      return;
     }
     if (Array.isArray(obj)) {
       for (const item of obj) {
-        const v = this.extractFirstVlessUri(item);
-        if (v !== undefined) {
-          return v;
-        }
+        this.collectVlessUris(item, out);
       }
-      return undefined;
+      return;
     }
     if (typeof obj === 'object') {
       for (const v of Object.values(obj as Record<string, unknown>)) {
-        const x = this.extractFirstVlessUri(v);
-        if (x !== undefined) {
-          return x;
-        }
+        this.collectVlessUris(v, out);
       }
     }
-    return undefined;
+  }
+
+  private extractFirstVlessUri(obj: unknown): string | undefined {
+    const found: string[] = [];
+    this.collectVlessUris(obj, found);
+    for (const uri of found) {
+      if (this.vlessUserinfo(uri).length > 0) {
+        return uri;
+      }
+    }
+    return found[0];
+  }
+
+  private vlessUserinfo(uri: string): string {
+    const m = /^vless:\/\/([^@/?#]+)@/.exec(uri);
+    return m?.[1]?.trim() ?? '';
+  }
+
+  private assertVlessUserinfo(uri: string): void {
+    if (this.vlessUserinfo(uri).length === 0) {
+      throw new Error('3x-ui getClientLinks: vless URI has empty client id');
+    }
+  }
+
+  private async fetchInboundStreamSettingsJson(
+    inboundId: number,
+  ): Promise<string> {
+    await this.ensurePanelSession();
+    const url = this.apiPath(`/panel/api/inbounds/get/${inboundId}`);
+    const res = await firstValueFrom(
+      this.http.get<unknown>(url, {
+        headers: this.uiHeaders(),
+        timeout: 25000,
+        validateStatus: (s) => s === 200,
+      }),
+    );
+    const data = res.data as { obj?: { streamSettings?: unknown } };
+    const stream = data.obj?.streamSettings;
+    if (typeof stream !== 'string') {
+      throw new Error('3x-ui get inbound: streamSettings missing or invalid');
+    }
+    return stream;
+  }
+
+  /** Happ / Xray REALITY often need pbk + encryption=none; panel may omit them for node inbounds. */
+  private async enrichVlessRealityUri(
+    uri: string,
+    inboundId: number,
+  ): Promise<string> {
+    this.assertVlessUserinfo(uri);
+    const hashIdx = uri.indexOf('#');
+    const hash = hashIdx >= 0 ? uri.slice(hashIdx) : '';
+    const withoutHash = hashIdx >= 0 ? uri.slice(0, hashIdx) : uri;
+    const qIdx = withoutHash.indexOf('?');
+    const base = qIdx >= 0 ? withoutHash.slice(0, qIdx) : withoutHash;
+    const params = new URLSearchParams(
+      qIdx >= 0 ? withoutHash.slice(qIdx + 1) : '',
+    );
+    if (params.get('security') !== 'reality') {
+      return uri;
+    }
+    if (!params.has('encryption')) {
+      params.set('encryption', 'none');
+    }
+    if (!params.has('fp')) {
+      params.set('fp', 'chrome');
+    }
+    if (!params.has('pbk')) {
+      const stream = JSON.parse(
+        await this.fetchInboundStreamSettingsJson(inboundId),
+      ) as { realitySettings?: { publicKey?: string } };
+      const pbk = stream.realitySettings?.publicKey;
+      if (typeof pbk === 'string' && pbk.trim().length > 0) {
+        params.set('pbk', pbk.trim());
+      }
+    }
+    const q = params.toString();
+    return q.length > 0 ? `${base}?${q}${hash}` : `${base}${hash}`;
   }
 
   private countClientsInSettingsJson(settingsJson: string): number {
@@ -344,7 +416,7 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     if (vless === undefined || vless.length === 0) {
       throw new Error('3x-ui getClientLinks: no vless URI in response');
     }
-    return vless;
+    return await this.enrichVlessRealityUri(vless, inboundId);
   }
 
   private async postInboundAddClient(
@@ -527,6 +599,7 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
       clients: [
         {
           id: clientUuid,
+          password: clientUuid,
           email,
           flow: VLESS_FLOW_XTLS_RPRX_VISION,
           limitIp,
