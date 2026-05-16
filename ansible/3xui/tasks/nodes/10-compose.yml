@@ -5,6 +5,11 @@
   ansible.builtin.set_fact:
     xui_publish_host: "{{ xui_node_publish_host | default('0.0.0.0') | trim }}"
 
+# Same formula as per-node inbound on master (sorted inventory index).
+- name: Derive planned VPN publish port for this node
+  ansible.builtin.set_fact:
+    xui_node_vpn_publish_port: "{{ xui_per_node_inbound_port_base | int + ((groups['nodes'] | sort).index(inventory_hostname) | int) }}"
+
 - name: Ensure panel install directory exists
   ansible.builtin.file:
     path: "{{ item }}"

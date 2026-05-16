@@ -7,5 +7,8 @@ services:
       - {{ (xui_install_dir ~ '/db') | quote }}:/etc/x-ui
     ports:
       - "{{ xui_publish_host }}:{{ xui_panel_http_port }}:{{ xui_panel_http_port }}"
+{% if xui_node_vpn_publish_port is defined and (xui_node_vpn_publish_port | int) > 0 %}
+      - "{{ xui_publish_host }}:{{ xui_node_vpn_publish_port | int }}:{{ xui_node_vpn_publish_port | int }}"
+{% endif %}
     environment:
       XUI_ENABLE_FAIL2BAN: {{ xui_enable_fail2ban | quote }}

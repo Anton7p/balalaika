@@ -92,3 +92,7 @@
       when:
         - xui_create_per_node_inbounds | default(false) | bool
         - (hostvars['localhost']['xui_node_vpn_port_map'] | default({})) | length > 0
+    - ansible.builtin.include_tasks: tasks/nodes/32-compose-vpn-port-publish.yml
+      when:
+        - xui_create_per_node_inbounds | default(false) | bool
+        - (hostvars['localhost']['xui_node_vpn_port_map'] | default({})) | length > 0
