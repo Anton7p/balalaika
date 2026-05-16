@@ -10,13 +10,18 @@ import {
   recordFail,
   recordOk,
 } from './redis-state';
+import {
+  selectMonitoredNodes,
+  type MonitoredWatchdogNode,
+} from './select-monitored-nodes';
 import { tcpProbe } from './tcp-check';
 import type { WatchdogConfig } from './types';
+import type { WatchdogPanelSession } from './panel-session';
 
 async function checkNode(
   cfg: WatchdogConfig,
   node: WatchdogNodeConfig,
-  panel: ReturnType<typeof createPanelSession>,
+  panel: WatchdogPanelSession,
 ): Promise<boolean> {
   const tcpOk = await tcpProbe(node.host, node.port, cfg.tcpTimeoutMs);
   if (!tcpOk) {
@@ -44,23 +49,39 @@ async function callAppFailover(
   );
 }
 
+/** Предпочитаем пустую запасную; иначе первую живую standby. */
+async function pickHealthyStandby(
+  cfg: WatchdogConfig,
+  dead: WatchdogNodeConfig,
+  nodes: readonly WatchdogNodeConfig[],
+  panel: WatchdogPanelSession,
+): Promise<WatchdogNodeConfig | undefined> {
+  const standbys = nodes.filter(
+    (n) => n.pool === 'standby' && n.inboundId !== dead.inboundId,
+  );
+  if (standbys.length === 0) {
+    return undefined;
+  }
+  const counts = await panel.clientCounts(standbys.map((n) => n.inboundId));
+  const ordered = [...standbys].sort(
+    (a, b) => (counts.get(a.inboundId) ?? 0) - (counts.get(b.inboundId) ?? 0),
+  );
+  for (const n of ordered) {
+    if (await checkNode(cfg, n, panel)) {
+      return n;
+    }
+  }
+  return undefined;
+}
+
 async function runFailover(
   cfg: WatchdogConfig,
   dead: WatchdogNodeConfig,
-  panel: ReturnType<typeof createPanelSession>,
+  panel: WatchdogPanelSession,
   redis: ReturnType<typeof createRedis>,
 ): Promise<void> {
   const nodes = await resolveNodes(cfg, redis);
-  let standby: WatchdogNodeConfig | undefined;
-  for (const n of nodes) {
-    if (n.pool !== 'standby' || n.inboundId === dead.inboundId) {
-      continue;
-    }
-    if (await checkNode(cfg, n, panel)) {
-      standby = n;
-      break;
-    }
-  }
+  const standby = await pickHealthyStandby(cfg, dead, nodes, panel);
   if (standby === undefined) {
     console.error(
       `[watchdog] no healthy standby for dead inbound ${dead.inboundId}`,
@@ -110,6 +131,16 @@ async function resolveNodes(
   return cfg.nodes;
 }
 
+function monitorRoleTag(role: MonitoredWatchdogNode['monitorRole']): string {
+  if (role === 'carrying') {
+    return ' carrying';
+  }
+  if (role === 'spare') {
+    return ' spare';
+  }
+  return ' head';
+}
+
 async function tick(cfg: WatchdogConfig): Promise<void> {
   const redis = createRedis(cfg);
   const panel = createPanelSession(
@@ -119,22 +150,23 @@ async function tick(cfg: WatchdogConfig): Promise<void> {
   );
 
   const nodes = await resolveNodes(cfg, redis);
-  const working = nodes.filter((n) => n.pool === 'working');
-  for (const node of working) {
+  const monitored = await selectMonitoredNodes(cfg, nodes, panel);
+
+  for (const node of monitored) {
     try {
       const ok = await checkNode(cfg, node, panel);
       if (ok) {
         const okCount = await recordOk(redis, node.inboundId);
         if (okCount >= cfg.okThreshold) {
           console.log(
-            `[watchdog] inbound ${node.inboundId} healthy (${node.host}:${node.port})`,
+            `[watchdog] inbound ${node.inboundId} healthy (${node.host}:${node.port})${monitorRoleTag(node.monitorRole)}`,
           );
         }
         continue;
       }
       const fails = await recordFail(redis, node.inboundId);
       console.warn(
-        `[watchdog] inbound ${node.inboundId} check failed (${fails}/${cfg.failThreshold})`,
+        `[watchdog] inbound ${node.inboundId} check failed (${fails}/${cfg.failThreshold})${monitorRoleTag(node.monitorRole)}`,
       );
       if (fails >= cfg.failThreshold) {
         await runFailover(cfg, node, panel, redis);
@@ -154,7 +186,16 @@ export async function runWatchdog(): Promise<void> {
     return;
   }
   const nodeSource = cfg.nodeIpsRaw !== undefined ? 'NODE_IPS+panel' : 'VPN_WATCHDOG_NODES_JSON';
-  console.log(`[watchdog] start interval=${cfg.intervalSec}s source=${nodeSource}`);
+  const monitorMode = cfg.nodeIpsRaw
+    ? cfg.monitorAllQueue
+      ? 'all-queue'
+      : cfg.monitorCarryingNodes
+        ? 'head+carrying'
+        : 'head-only'
+    : 'json-working';
+  console.log(
+    `[watchdog] start interval=${cfg.intervalSec}s source=${nodeSource} monitor=${monitorMode}`,
+  );
 
   const loop = async () => {
     try {

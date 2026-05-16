@@ -176,6 +176,14 @@ export class EnvVars {
   @IsOptional()
   @IsString()
   VPN_WATCHDOG_NODES_JSON?: string;
+
+  @IsOptional()
+  @IsString()
+  VPN_WATCHDOG_MONITOR_CARRYING_NODES?: string;
+
+  @IsOptional()
+  @IsString()
+  VPN_WATCHDOG_MONITOR_ALL_QUEUE?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvVars {

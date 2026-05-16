@@ -133,6 +133,20 @@ export class WatchdogPanelSession {
     return res.data;
   }
 
+  async clientCount(inboundId: number): Promise<number> {
+    return (await this.listClientEmails(inboundId)).length;
+  }
+
+  async clientCounts(
+    inboundIds: readonly number[],
+  ): Promise<Map<number, number>> {
+    const map = new Map<number, number>();
+    for (const inboundId of inboundIds) {
+      map.set(inboundId, await this.clientCount(inboundId));
+    }
+    return map;
+  }
+
   async listClientEmails(inboundId: number): Promise<string[]> {
     await this.ensureLogin();
     const res = await this.http.get<{ obj?: { settings?: string } }>(

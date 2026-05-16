@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { REDIS_CLIENT } from '../redis/redis.constants';
 import { LoadBalancerService } from './load-balancer.service';
 import { NodeQueueRoutingService } from './node-queue-routing.service';
+import { PanelNodeRegistryService } from './panel-node-registry.service';
 import { REDIS_WORKING_INBOUND_IDS_KEY } from './vpn-routing.constants';
 import { XuiPanelHttpClient } from './xui-panel-http.client';
 
@@ -26,6 +27,7 @@ export class VpnFailoverService {
     private readonly crypto: CryptoService,
     private readonly panel: XuiPanelHttpClient,
     private readonly loadBalancer: LoadBalancerService,
+    private readonly panelRegistry: PanelNodeRegistryService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly http: HttpService,
     @InjectPinoLogger(VpnFailoverService.name)
@@ -82,16 +84,21 @@ export class VpnFailoverService {
     }
 
     if (this.nodeQueue?.usesNodeIpQueue()) {
-      await this.nodeQueue.syncWorkingIndexToInbound(req.toInboundId);
+      const headInbound = await this.nodeQueue.currentWorkingInboundId();
+      if (req.fromInboundId === headInbound) {
+        await this.nodeQueue.syncWorkingIndexToInbound(req.toInboundId);
+      }
     } else {
       await this.patchWorkingInboundList(req.fromInboundId, req.toInboundId);
     }
 
     const adminId = this.config.get<string>('TELEGRAM_ADMIN_ID')?.trim();
     if (adminId !== undefined && adminId.length > 0) {
+      const fromLabel = await this.formatInboundForAdmin(req.fromInboundId);
+      const toLabel = await this.formatInboundForAdmin(req.toInboundId);
       await this.sendTelegramPlain(
         BigInt(adminId),
-        `⚠️ Auto-failover: inbound ${req.fromInboundId} → ${req.toInboundId}. ` +
+        `⚠️ Auto-failover: ${fromLabel} → ${toLabel}. ` +
           `Подписок обновлено: ${String(notified)} / ${String(rows.length)}.`,
       ).catch((err: unknown) => {
         this.log.warn({ err }, 'vpn_failover_admin_notify_failed');
@@ -156,6 +163,26 @@ export class VpnFailoverService {
       throw new Error('no vless in getClientLinks');
     }
     return m[0];
+  }
+
+  /** Для админского Telegram: IP:port (inbound N) из NODE_IPS, иначе только id. */
+  private async formatInboundForAdmin(inboundId: number): Promise<string> {
+    if (!this.panelRegistry.usesNodeIpQueue()) {
+      return `inbound ${inboundId}`;
+    }
+    try {
+      const queue = await this.panelRegistry.resolveQueueFromPanel();
+      const node = queue.find((n) => n.inboundId === inboundId);
+      if (node !== undefined) {
+        return `${node.address}:${String(node.port)} (inbound ${inboundId})`;
+      }
+    } catch (err: unknown) {
+      this.log.warn(
+        { err, inboundId },
+        'vpn_failover_resolve_inbound_label_failed',
+      );
+    }
+    return `inbound ${inboundId}`;
   }
 
   private async patchWorkingInboundList(

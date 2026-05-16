@@ -20,4 +20,13 @@ export interface WatchdogConfig {
   readonly nodeIpsRaw?: string;
   /** Устаревший ручной JSON; не используется, если задан nodeIpsRaw. */
   readonly nodes: readonly WatchdogNodeConfig[];
+  /**
+   * NODE_IPS: пинговать все ноды в очереди (включая пустые запасные).
+   * Иначе см. monitorCarryingNodes.
+   */
+  readonly monitorAllQueue: boolean;
+  /**
+   * NODE_IPS: пинговать текущую «голову» + standby inbound с клиентами на панели.
+   */
+  readonly monitorCarryingNodes: boolean;
 }

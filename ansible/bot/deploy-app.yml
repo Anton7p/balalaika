@@ -22,6 +22,7 @@
     vpn_watchdog_interval_sec: "{{ lookup('env', 'VPN_WATCHDOG_INTERVAL_SEC') | default('60', true) }}"
     vpn_watchdog_fail_threshold: "{{ lookup('env', 'VPN_WATCHDOG_FAIL_THRESHOLD') | default('3', true) }}"
     vpn_watchdog_hook_secret: "{{ lookup('env', 'VPN_WATCHDOG_HOOK_SECRET') | default(encryption_key, true) }}"
+    vpn_watchdog_monitor_carrying_nodes: "{{ lookup('env', 'VPN_WATCHDOG_MONITOR_CARRYING_NODES') | default('true', true) }}"
   pre_tasks:
     - name: Validate required bot deploy variables
       ansible.builtin.assert:

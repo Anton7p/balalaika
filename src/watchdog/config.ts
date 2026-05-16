@@ -14,6 +14,15 @@ function envOptional(name: string): string | undefined {
   return v === undefined || v.trim().length === 0 ? undefined : v.trim();
 }
 
+function envBool(name: string, fallback: boolean): boolean {
+  const raw = envOptional(name);
+  if (raw === undefined) {
+    return fallback;
+  }
+  const lower = raw.toLowerCase();
+  return lower !== 'false' && lower !== '0' && lower !== 'no';
+}
+
 export function loadWatchdogConfig(): WatchdogConfig {
   const enabledRaw = envOptional('VPN_WATCHDOG_ENABLED') ?? 'true';
   const enabled = enabledRaw.toLowerCase() !== 'false' && enabledRaw !== '0';
@@ -34,6 +43,7 @@ export function loadWatchdogConfig(): WatchdogConfig {
     );
   }
 
+  const hasNodeIps = nodeIpsRaw !== undefined;
   return {
     enabled,
     intervalSec: Number(envOptional('VPN_WATCHDOG_INTERVAL_SEC') ?? '60'),
@@ -50,5 +60,10 @@ export function loadWatchdogConfig(): WatchdogConfig {
     redisPassword: envOptional('REDIS_PASSWORD'),
     nodeIpsRaw,
     nodes: nodesJson !== undefined ? parseNodesJson(nodesJson) : [],
+    monitorAllQueue: envBool('VPN_WATCHDOG_MONITOR_ALL_QUEUE', false),
+    monitorCarryingNodes: envBool(
+      'VPN_WATCHDOG_MONITOR_CARRYING_NODES',
+      hasNodeIps,
+    ),
   };
 }
