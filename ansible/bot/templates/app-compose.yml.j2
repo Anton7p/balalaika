@@ -45,7 +45,7 @@ services:
   vpn-watchdog:
     image: {{ app_image }}
     restart: always
-    command: ["node", "dist/watchdog/main.js"]
+    entrypoint: ["node", "dist/watchdog/main.js"]
     env_file:
       - .env
     environment:
