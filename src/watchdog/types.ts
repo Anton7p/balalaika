@@ -1,12 +1,6 @@
-export type WatchdogNodePool = 'working' | 'standby';
+import type { WatchdogNodeConfig } from '../vpn/build-watchdog-nodes';
 
-export interface WatchdogNodeConfig {
-  readonly inboundId: number;
-  readonly host: string;
-  readonly port: number;
-  readonly panelNodeId?: number;
-  readonly pool: WatchdogNodePool;
-}
+export type { WatchdogNodeConfig, WatchdogNodePool } from '../vpn/build-watchdog-nodes';
 
 export interface WatchdogConfig {
   readonly enabled: boolean;
@@ -22,5 +16,8 @@ export interface WatchdogConfig {
   readonly redisHost: string;
   readonly redisPort: number;
   readonly redisPassword?: string;
+  /** Секрет NODE_IPS: ноды резолвятся через API панели на каждый tick. */
+  readonly nodeIpsRaw?: string;
+  /** Устаревший ручной JSON; не используется, если задан nodeIpsRaw. */
   readonly nodes: readonly WatchdogNodeConfig[];
 }

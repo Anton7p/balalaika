@@ -31,6 +31,10 @@ export class NodeQueueRoutingService {
     await this.redis.set(REDIS_QUEUE_WORKING_INDEX_KEY, String(index));
   }
 
+  usesNodeIpQueue(): boolean {
+    return this.registry.usesNodeIpQueue();
+  }
+
   async resolveQueue(): Promise<ResolvedQueueNode[]> {
     return await this.registry.resolveQueueFromPanel();
   }

@@ -1,9 +1,17 @@
 import axios from 'axios';
+import type { WatchdogNodeConfig } from '../vpn/build-watchdog-nodes';
 import { loadWatchdogConfig } from './config';
 import { createPanelSession } from './panel-session';
-import { acquireFailoverLock, createRedis, recordFail, recordOk } from './redis-state';
+import { resolveWatchdogNodesFromNodeIps } from './resolve-nodes-from-env';
+import {
+  acquireFailoverLock,
+  createRedis,
+  readQueueWorkingIndex,
+  recordFail,
+  recordOk,
+} from './redis-state';
 import { tcpProbe } from './tcp-check';
-import type { WatchdogConfig, WatchdogNodeConfig } from './types';
+import type { WatchdogConfig } from './types';
 
 async function checkNode(
   cfg: WatchdogConfig,
@@ -42,8 +50,9 @@ async function runFailover(
   panel: ReturnType<typeof createPanelSession>,
   redis: ReturnType<typeof createRedis>,
 ): Promise<void> {
+  const nodes = await resolveNodes(cfg, redis);
   let standby: WatchdogNodeConfig | undefined;
-  for (const n of cfg.nodes) {
+  for (const n of nodes) {
     if (n.pool !== 'standby' || n.inboundId === dead.inboundId) {
       continue;
     }
@@ -84,6 +93,23 @@ async function runFailover(
   console.warn('[watchdog] failover completed, app hook OK');
 }
 
+async function resolveNodes(
+  cfg: WatchdogConfig,
+  redis: ReturnType<typeof createRedis>,
+): Promise<readonly WatchdogNodeConfig[]> {
+  if (cfg.nodeIpsRaw !== undefined) {
+    const workingIndex = await readQueueWorkingIndex(redis);
+    return await resolveWatchdogNodesFromNodeIps(
+      cfg.panelUrl,
+      cfg.panelUser,
+      cfg.panelPassword,
+      cfg.nodeIpsRaw,
+      workingIndex,
+    );
+  }
+  return cfg.nodes;
+}
+
 async function tick(cfg: WatchdogConfig): Promise<void> {
   const redis = createRedis(cfg);
   const panel = createPanelSession(
@@ -92,7 +118,8 @@ async function tick(cfg: WatchdogConfig): Promise<void> {
     cfg.panelPassword,
   );
 
-  const working = cfg.nodes.filter((n) => n.pool === 'working');
+  const nodes = await resolveNodes(cfg, redis);
+  const working = nodes.filter((n) => n.pool === 'working');
   for (const node of working) {
     try {
       const ok = await checkNode(cfg, node, panel);
@@ -126,9 +153,8 @@ export async function runWatchdog(): Promise<void> {
     console.log('[watchdog] VPN_WATCHDOG_ENABLED=false, exit');
     return;
   }
-  console.log(
-    `[watchdog] start interval=${cfg.intervalSec}s nodes=${cfg.nodes.length}`,
-  );
+  const nodeSource = cfg.nodeIpsRaw !== undefined ? 'NODE_IPS+panel' : 'VPN_WATCHDOG_NODES_JSON';
+  console.log(`[watchdog] start interval=${cfg.intervalSec}s source=${nodeSource}`);
 
   const loop = async () => {
     try {

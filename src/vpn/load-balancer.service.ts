@@ -1,7 +1,8 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type Redis from 'ioredis';
 import { REDIS_CLIENT } from '../redis/redis.constants';
+import { NodeQueueRoutingService } from './node-queue-routing.service';
 import { REDIS_WORKING_INBOUND_IDS_KEY } from './vpn-routing.constants';
 
 export interface InboundPickResult {
@@ -17,10 +18,14 @@ export class LoadBalancerService {
   constructor(
     private readonly config: ConfigService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    @Optional() private readonly nodeQueue?: NodeQueueRoutingService,
   ) {}
 
   /** Порядок = приоритет; Redis после auto-failover, иначе env. */
   async workingInboundIdsAsync(): Promise<readonly number[]> {
+    if (this.nodeQueue?.usesNodeIpQueue()) {
+      return [await this.nodeQueue.currentWorkingInboundId()];
+    }
     const fromRedis = await this.redis.get(REDIS_WORKING_INBOUND_IDS_KEY);
     if (fromRedis !== null && fromRedis.trim().length > 0) {
       return this.parseInboundIdList(fromRedis);
@@ -75,6 +80,19 @@ export class LoadBalancerService {
     clientCounts: ReadonlyMap<number, number>,
   ): Promise<InboundPickResult | undefined> {
     const limit = this.clientLimitPerInbound();
+    if (this.nodeQueue?.usesNodeIpQueue()) {
+      let inboundId = await this.nodeQueue.currentWorkingInboundId();
+      for (;;) {
+        if ((clientCounts.get(inboundId) ?? 0) < limit) {
+          return { inboundId };
+        }
+        try {
+          inboundId = await this.nodeQueue.advanceQueue('limit');
+        } catch {
+          return undefined;
+        }
+      }
+    }
     for (const inboundId of await this.workingInboundIdsAsync()) {
       const count = clientCounts.get(inboundId) ?? 0;
       if (count < limit) {

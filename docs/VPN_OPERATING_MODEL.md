@@ -117,7 +117,7 @@
 
 **Failover:** первая живая нода с `"pool":"standby"` → `copyClients` на master → отключение мёртвого inbound → hook бота → рассылка новых **`vless://`**.
 
-Конфиг watchdog — в **`.env`** на master (шаблон [`app.env.j2`](../ansible/bot/templates/app.env.j2), дефолты [`ansible/bot/defaults/main.yml`](../ansible/bot/defaults/main.yml)): **`VPN_WATCHDOG_NODES_JSON`**, пороги, **`VPN_WATCHDOG_HOOK_SECRET`** (можно = `ENCRYPTION_KEY`). **Не** секреты GitHub.
+Конфиг watchdog — в **`.env`** на master (шаблон [`app.env.j2`](../ansible/bot/templates/app.env.j2)): секрет **`NODE_IPS`** (тот же JSON, что в GitHub) + учётка панели; ноды резолвятся через API при каждой проверке. Пороги и **`VPN_WATCHDOG_HOOK_SECRET`** (можно = `ENCRYPTION_KEY`) — дефолты в плейбуке. **Не** отдельные секреты GitHub.
 
 После авто-failover список **`VPN_WORKING_INBOUND_IDS`** для **новых** клиентов дублируется в Redis (`balalaika:vpn:working_inbound_ids`); бот читает Redis, затем env.
 
@@ -144,7 +144,8 @@
 | Переменная | Где задаётся | Смысл |
 |------------|--------------|--------|
 | **`VPN_PANEL_URL`** | `.env` на master (шаблон `ansible/bot/templates/app.env.j2`) | API master для бота |
-| **`VPN_WORKING_INBOUND_IDS`** | `ansible/bot/defaults/main.yml` → `.env`; локально — корневой `.env` | Рабочие inbound id через запятую, **порядок = приоритет** |
+| **`NODE_IPS`** | GitHub Secret → `.env` на master при деплое бота | JSON-массив нод; **порядок = очередь** (0 — рабочая). Inbound id — из API панели |
+| **`VPN_WORKING_INBOUND_IDS`** | опционально (legacy) | Если **`NODE_IPS`** не задан — id через запятую |
 | **`VPN_INBOUND_CLIENT_LIMIT`** | то же | Лимит клиентов на inbound (смоук: **1–2**, прод: **сотни**) |
 | **`VPN_PANEL_INBOUND_ID`** | опционально | Устаревший один id, если список рабочих не задан |
 | **`VPN_ADMIN_*`** | GitHub Secrets → `.env` | Логин панели (секрет) |

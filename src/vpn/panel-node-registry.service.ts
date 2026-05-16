@@ -9,6 +9,18 @@ import { XuiPanelHttpClient } from './xui-panel-http.client';
 
 export type { ResolvedQueueNode };
 
+interface InboundRow {
+  id?: number;
+  remark?: string;
+  port?: number;
+}
+
+interface PanelNodeRow {
+  id?: number;
+  name?: string;
+  address?: string;
+}
+
 @Injectable()
 export class PanelNodeRegistryService {
   constructor(

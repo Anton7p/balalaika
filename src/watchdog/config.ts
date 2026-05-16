@@ -1,4 +1,5 @@
-import type { WatchdogConfig, WatchdogNodeConfig } from './types';
+import { parseNodesJson } from './parse-nodes-json';
+import type { WatchdogConfig } from './types';
 
 function env(name: string, fallback?: string): string {
   const v = process.env[name] ?? fallback;
@@ -13,42 +14,6 @@ function envOptional(name: string): string | undefined {
   return v === undefined || v.trim().length === 0 ? undefined : v.trim();
 }
 
-function parseNodesJson(raw: string): WatchdogNodeConfig[] {
-  const parsed = JSON.parse(raw) as unknown;
-  if (!Array.isArray(parsed)) {
-    throw new Error('VPN_WATCHDOG_NODES_JSON must be a JSON array');
-  }
-  const nodes: WatchdogNodeConfig[] = [];
-  for (const item of parsed) {
-    if (typeof item !== 'object' || item === null) {
-      continue;
-    }
-    const o = item as Record<string, unknown>;
-    const inboundId = Number(o.inboundId);
-    const host = String(o.host ?? '').trim();
-    const port = Number(o.port);
-    const pool = o.pool === 'standby' ? 'standby' : 'working';
-    if (!Number.isFinite(inboundId) || inboundId < 1 || host.length === 0 || !Number.isFinite(port)) {
-      throw new Error('Invalid watchdog node entry');
-    }
-    const panelNodeId =
-      o.panelNodeId !== undefined ? Number(o.panelNodeId) : undefined;
-    nodes.push({
-      inboundId,
-      host,
-      port,
-      pool,
-      ...(panelNodeId !== undefined && Number.isFinite(panelNodeId)
-        ? { panelNodeId }
-        : {}),
-    });
-  }
-  if (nodes.length === 0) {
-    throw new Error('VPN_WATCHDOG_NODES_JSON: empty');
-  }
-  return nodes;
-}
-
 export function loadWatchdogConfig(): WatchdogConfig {
   const enabledRaw = envOptional('VPN_WATCHDOG_ENABLED') ?? 'true';
   const enabled = enabledRaw.toLowerCase() !== 'false' && enabledRaw !== '0';
@@ -59,6 +24,15 @@ export function loadWatchdogConfig(): WatchdogConfig {
   const appHookUrl =
     envOptional('VPN_WATCHDOG_APP_URL') ??
     `http://app:${appPort}/internal/vpn/failover`;
+
+  const nodeIpsRaw = envOptional('NODE_IPS');
+  const nodesJson = envOptional('VPN_WATCHDOG_NODES_JSON');
+
+  if (enabled && nodeIpsRaw === undefined && nodesJson === undefined) {
+    throw new Error(
+      'Watchdog enabled: set NODE_IPS (from GitHub secret at deploy) or VPN_WATCHDOG_NODES_JSON',
+    );
+  }
 
   return {
     enabled,
@@ -74,6 +48,7 @@ export function loadWatchdogConfig(): WatchdogConfig {
     redisHost: env('REDIS_HOST'),
     redisPort: Number(env('REDIS_PORT')),
     redisPassword: envOptional('REDIS_PASSWORD'),
-    nodes: parseNodesJson(env('VPN_WATCHDOG_NODES_JSON')),
+    nodeIpsRaw,
+    nodes: nodesJson !== undefined ? parseNodesJson(nodesJson) : [],
   };
 }

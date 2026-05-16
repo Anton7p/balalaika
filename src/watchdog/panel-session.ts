@@ -82,6 +82,15 @@ export class WatchdogPanelSession {
     return String(t);
   }
 
+  async getJson<T>(path: string): Promise<T> {
+    await this.ensureLogin();
+    const res = await this.http.get<T>(this.apiPath(path), {
+      headers: this.headers(),
+      validateStatus: (s) => s === 200,
+    });
+    return res.data;
+  }
+
   async ensureLogin(): Promise<void> {
     if (this.loggedIn) {
       return;

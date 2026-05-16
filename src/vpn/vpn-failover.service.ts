@@ -1,5 +1,5 @@
 import { HttpService } from '@nestjs/axios';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type Redis from 'ioredis';
@@ -9,6 +9,7 @@ import { NOTIFY_HTML } from '../common/content/notify-html';
 import { PrismaService } from '../prisma/prisma.service';
 import { REDIS_CLIENT } from '../redis/redis.constants';
 import { LoadBalancerService } from './load-balancer.service';
+import { NodeQueueRoutingService } from './node-queue-routing.service';
 import { REDIS_WORKING_INBOUND_IDS_KEY } from './vpn-routing.constants';
 import { XuiPanelHttpClient } from './xui-panel-http.client';
 
@@ -29,6 +30,7 @@ export class VpnFailoverService {
     private readonly http: HttpService,
     @InjectPinoLogger(VpnFailoverService.name)
     private readonly log: PinoLogger,
+    @Optional() private readonly nodeQueue?: NodeQueueRoutingService,
   ) {}
 
   async applyFailover(req: VpnFailoverRequest): Promise<{
@@ -79,7 +81,11 @@ export class VpnFailoverService {
       }
     }
 
-    await this.patchWorkingInboundList(req.fromInboundId, req.toInboundId);
+    if (this.nodeQueue?.usesNodeIpQueue()) {
+      await this.nodeQueue.syncWorkingIndexToInbound(req.toInboundId);
+    } else {
+      await this.patchWorkingInboundList(req.fromInboundId, req.toInboundId);
+    }
 
     const adminId = this.config.get<string>('TELEGRAM_ADMIN_ID')?.trim();
     if (adminId !== undefined && adminId.length > 0) {

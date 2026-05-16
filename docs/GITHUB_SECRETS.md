@@ -32,4 +32,6 @@
 
 `VPN_ADMIN_USERNAME` — имя пользователя панели 3x-ui.
 
-**Не секреты GitHub** (задаются в репозитории / `.env` на master при деплое бота, см. [`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md) §7): **`VPN_WORKING_INBOUND_IDS`**, **`VPN_INBOUND_CLIENT_LIMIT`**, устаревший одиночный **`VPN_PANEL_INBOUND_ID`**.
+**Деплой бота** также читает секрет **`NODE_IPS`** (тот же JSON, что для `deploy-nodes`): попадает в `.env` на master; бот и **`vpn-watchdog`** сами получают inbound id / порты через API панели.
+
+**Не секреты GitHub** (дефолты в плейбуке / опционально env при деплое): **`VPN_INBOUND_CLIENT_LIMIT`**, пороги watchdog. Устаревшие **`VPN_WORKING_INBOUND_IDS`**, **`VPN_WATCHDOG_NODES_JSON`** — только если **`NODE_IPS`** не задан.

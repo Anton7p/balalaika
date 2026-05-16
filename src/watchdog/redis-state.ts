@@ -19,6 +19,16 @@ function okKey(inboundId: number): string {
 }
 
 const LOCK_KEY = 'balalaika:watchdog:failover:lock';
+const QUEUE_WORKING_INDEX_KEY = 'balalaika:vpn:queue:working_index';
+
+export async function readQueueWorkingIndex(redis: Redis): Promise<number> {
+  const raw = await redis.get(QUEUE_WORKING_INDEX_KEY);
+  if (raw === null || raw.trim().length === 0) {
+    return 0;
+  }
+  const n = Number.parseInt(raw, 10);
+  return !Number.isNaN(n) && n >= 0 ? n : 0;
+}
 
 export async function recordFail(
   redis: Redis,

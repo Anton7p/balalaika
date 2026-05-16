@@ -12,7 +12,7 @@ CI собирает образ приложения, пушит в **GHCR**, з�
 
 ## VPN и панель (правила репозитория)
 
-Целевая модель: **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)** — master только для API и учёта, пользователю **`vless://` на ноду**, пулы **рабочих / запасных** нод, failover вручную или отдельным кодом (**вариант A**). В окружении приложения: **`VPN_PANEL_URL`**, **`VPN_WORKING_INBOUND_IDS`**, **`VPN_INBOUND_CLIENT_LIMIT`** (шаблон [`ansible/bot/templates/app.env.j2`](../ansible/bot/templates/app.env.j2), дефолты [`ansible/bot/defaults/main.yml`](../ansible/bot/defaults/main.yml) — **не** новые секреты GitHub). **`DOMAIN_NAME`** в CI — прежде всего для TLS/nginx master и сценариев деплоя, не как обязательный хост в пользовательском VPN.
+Целевая модель: **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)** — master только для API и учёта, пользователю **`vless://` на ноду**, пулы **рабочих / запасных** нод, auto-failover (**watchdog**). В `.env` на master из секретов CI: **`NODE_IPS`** (очередь нод), учётка панели, **`DOMAIN_NAME`** → **`VPN_PANEL_URL`**. Inbound id и watchdog-цели — из API панели, без ручного JSON в репозитории.
 
 ## Ansible
 

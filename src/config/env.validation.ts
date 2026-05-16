@@ -156,6 +156,14 @@ export class EnvVars {
   @IsNotEmpty()
   DOMAIN_NAME!: string;
 
+  /**
+   * JSON-массив нод из секрета NODE_IPS (тот же формат, что в GitHub Actions).
+   * Порядок = очередь: [0] рабочая, далее запасные. Inbound id — из API панели.
+   */
+  @IsOptional()
+  @IsString()
+  NODE_IPS?: string;
+
   /** Секрет для POST /internal/vpn/failover (watchdog на master). */
   @IsOptional()
   @IsString()
