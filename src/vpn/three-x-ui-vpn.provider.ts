@@ -298,7 +298,7 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
 
   private async buildClientCountsMap(): Promise<Map<number, number>> {
     const map = new Map<number, number>();
-    for (const inboundId of this.loadBalancer.workingInboundIds()) {
+    for (const inboundId of await this.loadBalancer.workingInboundIdsAsync()) {
       map.set(inboundId, await this.fetchInboundClientCount(inboundId));
     }
     return map;
@@ -307,10 +307,10 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
   private async resolveInboundForNewClient(): Promise<number> {
     await this.ensurePanelSession();
     const counts = await this.buildClientCountsMap();
-    const picked = this.loadBalancer.pickInboundForNewClient(counts);
+    const picked = await this.loadBalancer.pickInboundForNewClient(counts);
     if (picked === undefined) {
       const limit = this.loadBalancer.clientLimitPerInbound();
-      const ids = this.loadBalancer.workingInboundIds().join(',');
+      const ids = (await this.loadBalancer.workingInboundIdsAsync()).join(',');
       throw new Error(
         `3x-ui: all working inbounds full (limit ${String(limit)} per inbound): ${ids}`,
       );

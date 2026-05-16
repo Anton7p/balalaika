@@ -11,6 +11,7 @@ import { PricingCatalogModule } from './catalog/pricing-catalog.module';
 import { validateEnv } from './config/env.validation';
 import { CryptoModule } from './crypto/crypto.module';
 import { HealthModule } from './health/health.module';
+import { InternalModule } from './internal/internal.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
@@ -72,6 +73,7 @@ import { UsersModule } from './users/users.module';
     SubscriptionsModule,
     TelegramModule,
     HealthModule,
+    InternalModule,
   ],
   providers: [
     {

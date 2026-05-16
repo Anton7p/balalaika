@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { LoadBalancerService } from './load-balancer.service';
 import { ThreeXUiVpnProvider } from './three-x-ui-vpn.provider';
 import { VpnProvisioningService } from './vpn-provisioning.service';
+import { XuiPanelHttpClient } from './xui-panel-http.client';
 import { VPN_ADMIN_PROVIDER, VPN_PROVIDER } from './vpn.tokens';
 
 @Module({
@@ -13,6 +14,7 @@ import { VPN_ADMIN_PROVIDER, VPN_PROVIDER } from './vpn.tokens';
     }),
   ],
   providers: [
+    XuiPanelHttpClient,
     LoadBalancerService,
     VpnProvisioningService,
     ThreeXUiVpnProvider,
@@ -28,6 +30,7 @@ import { VPN_ADMIN_PROVIDER, VPN_PROVIDER } from './vpn.tokens';
   exports: [
     VpnProvisioningService,
     LoadBalancerService,
+    XuiPanelHttpClient,
     VPN_PROVIDER,
     VPN_ADMIN_PROVIDER,
   ],

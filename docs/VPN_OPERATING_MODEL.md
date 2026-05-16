@@ -104,7 +104,26 @@
 
 ## 6. Failover (вариант A)
 
-Автоматического переключения в репозитории **нет**; порядок действий:
+### 6.0. Автоматика: контейнер `vpn-watchdog` на master
+
+На master в compose бота ([`ansible/bot/templates/app-compose.yml.j2`](../ansible/bot/templates/app-compose.yml.j2)):
+
+| Сервис | Роль |
+|--------|------|
+| **`vpn-watchdog`** | Тот же образ, что `app`; `node dist/watchdog/main.js`; `restart: always` |
+| **`app`** | `POST /internal/vpn/failover` — обновление подписок в Postgres, Telegram, Redis-список рабочих inbound |
+
+**Проверка (каждые `VPN_WATCHDOG_INTERVAL_SEC`, по умолчанию 60 с):** для каждой ноды из **`VPN_WATCHDOG_NODES_JSON`** с `"pool":"working"` — TCP на `host:port` (VPN-порт inbound); при заданном **`panelNodeId`** — ещё `POST …/nodes/probe/:id`. **`fail_threshold`** подряд (по умолчанию 3) → failover.
+
+**Failover:** первая живая нода с `"pool":"standby"` → `copyClients` на master → отключение мёртвого inbound → hook бота → рассылка новых **`vless://`**.
+
+Конфиг watchdog — в **`.env`** на master (шаблон [`app.env.j2`](../ansible/bot/templates/app.env.j2), дефолты [`ansible/bot/defaults/main.yml`](../ansible/bot/defaults/main.yml)): **`VPN_WATCHDOG_NODES_JSON`**, пороги, **`VPN_WATCHDOG_HOOK_SECRET`** (можно = `ENCRYPTION_KEY`). **Не** секреты GitHub.
+
+После авто-failover список **`VPN_WORKING_INBOUND_IDS`** для **новых** клиентов дублируется в Redis (`balalaika:vpn:working_inbound_ids`); бот читает Redis, затем env.
+
+### 6.1. Ручной failover (если watchdog выключен)
+
+Порядок действий:
 
 1. **Мониторинг** (вне приложения): TCP до VPN-порта ноды, при необходимости статус ноды на master, **гистерезис** против флапа.
 2. Подтвердить инцидент; выбрать **запасную** ноду (online, есть inbound с нужным `nodeId`).

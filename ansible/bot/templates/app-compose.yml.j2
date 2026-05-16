@@ -42,5 +42,20 @@ services:
       redis:
         condition: service_started
 
+  vpn-watchdog:
+    image: {{ app_image }}
+    restart: always
+    command: ["node", "dist/watchdog/main.js"]
+    env_file:
+      - .env
+    environment:
+      REDIS_HOST: redis
+      VPN_PANEL_URL: https://{{ domain_name }}
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_started
+
 volumes:
   app_postgres_data:

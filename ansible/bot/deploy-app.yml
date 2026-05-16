@@ -19,6 +19,11 @@
     app_db_password: "{{ lookup('env', 'APP_DB_PASSWORD') | default(vpn_admin_password, true) }}"
     vpn_working_inbound_ids: "{{ lookup('env', 'VPN_WORKING_INBOUND_IDS') | default(vpn_working_inbound_ids, true) }}"
     vpn_inbound_client_limit: "{{ lookup('env', 'VPN_INBOUND_CLIENT_LIMIT') | default(vpn_inbound_client_limit, true) }}"
+    vpn_watchdog_enabled: "{{ lookup('env', 'VPN_WATCHDOG_ENABLED') | default(vpn_watchdog_enabled, true) }}"
+    vpn_watchdog_interval_sec: "{{ lookup('env', 'VPN_WATCHDOG_INTERVAL_SEC') | default(vpn_watchdog_interval_sec, true) }}"
+    vpn_watchdog_fail_threshold: "{{ lookup('env', 'VPN_WATCHDOG_FAIL_THRESHOLD') | default(vpn_watchdog_fail_threshold, true) }}"
+    vpn_watchdog_nodes_json: "{{ lookup('env', 'VPN_WATCHDOG_NODES_JSON') | default(vpn_watchdog_nodes_json, true) }}"
+    vpn_watchdog_hook_secret: "{{ lookup('env', 'VPN_WATCHDOG_HOOK_SECRET') | default(encryption_key, true) }}"
   pre_tasks:
     - name: Validate required bot deploy variables
       ansible.builtin.assert:

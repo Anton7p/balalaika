@@ -155,6 +155,19 @@ export class EnvVars {
   @IsString()
   @IsNotEmpty()
   DOMAIN_NAME!: string;
+
+  /** Секрет для POST /internal/vpn/failover (watchdog на master). */
+  @IsOptional()
+  @IsString()
+  VPN_WATCHDOG_HOOK_SECRET?: string;
+
+  @IsOptional()
+  @IsString()
+  VPN_WATCHDOG_ENABLED?: string;
+
+  @IsOptional()
+  @IsString()
+  VPN_WATCHDOG_NODES_JSON?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvVars {

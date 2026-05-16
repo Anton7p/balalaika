@@ -1,5 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type Redis from 'ioredis';
+import { REDIS_CLIENT } from '../redis/redis.constants';
+import { REDIS_WORKING_INBOUND_IDS_KEY } from './vpn-routing.constants';
 
 export interface InboundPickResult {
   readonly inboundId: number;
@@ -11,10 +14,26 @@ export interface InboundPickResult {
  */
 @Injectable()
 export class LoadBalancerService {
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) {}
 
-  /** Порядок = приоритет; первый inbound с count < limit. */
+  /** Порядок = приоритет; Redis после auto-failover, иначе env. */
+  async workingInboundIdsAsync(): Promise<readonly number[]> {
+    const fromRedis = await this.redis.get(REDIS_WORKING_INBOUND_IDS_KEY);
+    if (fromRedis !== null && fromRedis.trim().length > 0) {
+      return this.parseInboundIdList(fromRedis);
+    }
+    return this.workingInboundIdsFromEnv();
+  }
+
+  /** @deprecated используйте workingInboundIdsAsync */
   workingInboundIds(): readonly number[] {
+    return this.workingInboundIdsFromEnv();
+  }
+
+  private workingInboundIdsFromEnv(): readonly number[] {
     const listRaw = this.config.get<string>('VPN_WORKING_INBOUND_IDS');
     if (listRaw !== undefined && listRaw.trim().length > 0) {
       return this.parseInboundIdList(listRaw);
@@ -52,11 +71,11 @@ export class LoadBalancerService {
    * @param clientCounts — число клиентов по inbound id (из панели).
    * @returns первый рабочий inbound с местом или undefined, если все заполнены.
    */
-  pickInboundForNewClient(
+  async pickInboundForNewClient(
     clientCounts: ReadonlyMap<number, number>,
-  ): InboundPickResult | undefined {
+  ): Promise<InboundPickResult | undefined> {
     const limit = this.clientLimitPerInbound();
-    for (const inboundId of this.workingInboundIds()) {
+    for (const inboundId of await this.workingInboundIdsAsync()) {
       const count = clientCounts.get(inboundId) ?? 0;
       if (count < limit) {
         return { inboundId };

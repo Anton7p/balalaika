@@ -18,7 +18,7 @@ Ansible и версии: **[`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md)**, *
 - **Рабочие ноды** — те, через чьи inbound’ы сейчас идёт (или планируется) прод; **запасные** — подняты и готовы, без массы клиентов до переключения. Пары **1:1 не обязательны**: запасной пул **общий**.
 - **Новые** клиенты: первый inbound из **`VPN_WORKING_INBOUND_IDS`** с числом клиентов **&lt; `VPN_INBOUND_CLIENT_LIMIT`** (`src/vpn/load-balancer.service.ts`). **Продление** — inbound из **`subscriptions.panel_inbound_id`**.
 - Статусы рабочих / запасных и два сценария (лимит vs авария): **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)** §3.2–3.3.
-- Автоматического **failover** в коде **нет**; процедура — §6 канона (`copyClients`, рассылка **`vless://`**).
+- **Auto-failover:** контейнер **`vpn-watchdog`** на master + hook **`POST /internal/vpn/failover`** у бота — §6.0 **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)**.
 
 ---
 

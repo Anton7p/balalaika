@@ -65,12 +65,12 @@ export class VpnProvisioningService {
   }
 
   /** Для админ-диагностики: порядок рабочих inbound и лимит из env. */
-  routingConfig(): {
+  async routingConfig(): Promise<{
     workingInboundIds: readonly number[];
     clientLimitPerInbound: number;
-  } {
+  }> {
     return {
-      workingInboundIds: this.loadBalancer.workingInboundIds(),
+      workingInboundIds: await this.loadBalancer.workingInboundIdsAsync(),
       clientLimitPerInbound: this.loadBalancer.clientLimitPerInbound(),
     };
   }
