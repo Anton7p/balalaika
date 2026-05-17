@@ -12,7 +12,9 @@ CI собирает образ приложения, пушит в **GHCR**, з�
 
 ## VPN и панель (правила репозитория)
 
-Целевая модель: **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)** — master только для API и учёта, пользователю **`vless://` на ноду**, пулы **рабочих / запасных** нод, auto-failover (**watchdog**). В `.env` на master из секретов CI: **`NODE_IPS`** (очередь нод), учётка панели, **`DOMAIN_NAME`** → **`VPN_PANEL_URL`**. Inbound id и watchdog-цели — из API панели, без ручного JSON в репозитории.
+Целевая модель: **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)** — master только для API и учёта, пользователю **`vless://` на ноду**, пулы **рабочих / запасных** нод, auto-failover (**watchdog**). В `.env` на master из секретов CI: **`NODE_IPS`** (очередь нод), учётка панели, **`DOMAIN_NAME`** → **`VPN_PANEL_URL`**, **`VPN_INBOUND_CLIENT_LIMIT`** (дефолт **200**, см. `ansible/bot/deploy-app.yml`). Inbound id и watchdog-цели — из API панели, без ручного JSON в репозитории.
+
+Этап продукта (MVP без PSP, нагрузочные тесты): **[`PRODUCT_STAGE.md`](PRODUCT_STAGE.md)**.
 
 ## Ansible
 

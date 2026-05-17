@@ -148,7 +148,7 @@
 | **`VPN_PANEL_URL`** | `.env` на master (шаблон `ansible/bot/templates/app.env.j2`) | API master для бота |
 | **`NODE_IPS`** | GitHub Secret → `.env` на master при деплое бота | JSON-массив нод; **порядок = очередь** (0 — рабочая). Inbound id — из API панели |
 | **`VPN_WORKING_INBOUND_IDS`** | опционально (legacy) | Если **`NODE_IPS`** не задан — id через запятую |
-| **`VPN_INBOUND_CLIENT_LIMIT`** | то же | Лимит клиентов на inbound (смоук: **1–2**, прод: **сотни**) |
+| **`VPN_INBOUND_CLIENT_LIMIT`** | то же | Лимит клиентов на inbound; **дефолт в деплое и коде: 200** (смоук ротации: **1–2** через env) |
 | **`VPN_PANEL_INBOUND_ID`** | опционально | Устаревший один id, если список рабочих не задан |
 | **`VPN_ADMIN_*`** | GitHub Secrets → `.env` | Логин панели (секрет) |
 | **`DOMAIN_NAME`** | GitHub Secrets | TLS/nginx master, не endpoint VPN в `vless` |

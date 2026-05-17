@@ -173,6 +173,7 @@ export DOMAIN_NAME VPN_ADMIN_USERNAME VPN_ADMIN_PASSWORD TELEGRAM_BOT_TOKEN ENCR
 [[ -n "${TELEGRAM_SUPPORT_URL:-}" ]] && export TELEGRAM_SUPPORT_URL
 [[ -n "${APP_DB_PASSWORD:-}" ]] && export APP_DB_PASSWORD
 [[ -n "${NODE_IPS:-}" ]] && export NODE_IPS
+[[ -n "${VPN_INBOUND_CLIENT_LIMIT:-}" ]] && export VPN_INBOUND_CLIENT_LIMIT
 
 echo "==> bot/deploy-app.yml --syntax-check"
 (

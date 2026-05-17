@@ -34,4 +34,4 @@
 
 **Деплой бота** также читает секрет **`NODE_IPS`** (тот же JSON, что для `deploy-nodes`): попадает в `.env` на master; бот и **`vpn-watchdog`** сами получают inbound id / порты через API панели.
 
-**Не секреты GitHub** (дефолты в плейбуке / опционально env при деплое): **`VPN_INBOUND_CLIENT_LIMIT`**, пороги watchdog, **`TELEGRAM_SUPPORT_URL`** (кнопка «Написать в поддержку», например `https://t.me/your_support`; если пусто — используется `tg://user?id=` + **`TELEGRAM_ADMIN_ID`**). Устаревшие **`VPN_WORKING_INBOUND_IDS`**, **`VPN_WATCHDOG_NODES_JSON`** — только если **`NODE_IPS`** не задан.
+**Не секреты GitHub** (дефолты в плейбуке / опционально env при деплое): **`VPN_INBOUND_CLIENT_LIMIT`** (дефолт **200** в `ansible/bot/deploy-app.yml` и workflow; для смоука ротации — `1` в `.env` при локальном деплое), пороги watchdog, **`TELEGRAM_SUPPORT_URL`** (кнопка «Написать в поддержку», например `https://t.me/your_support`; если пусто — используется `tg://user?id=` + **`TELEGRAM_ADMIN_ID`**). Устаревшие **`VPN_WORKING_INBOUND_IDS`**, **`VPN_WATCHDOG_NODES_JSON`** — только если **`NODE_IPS`** не задан.
