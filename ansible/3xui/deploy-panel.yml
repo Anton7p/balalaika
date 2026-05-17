@@ -10,6 +10,8 @@
     xui_domain_name: "{{ lookup('env', 'DOMAIN_NAME') | default('', true) | trim }}"
     xui_vpn_username: "{{ lookup('env', 'VPN_ADMIN_USERNAME') | default('', true) | trim }}"
     xui_vpn_password: "{{ lookup('env', 'VPN_ADMIN_PASSWORD') | default('', true) | trim }}"
+    xui_telegram_admin_id: "{{ lookup('env', 'TELEGRAM_ADMIN_ID') | default('', true) | trim }}"
+    xui_telegram_bot_admin: "{{ lookup('env', 'TELEGRAM_BOT_ADMIN') | default('', true) | trim }}"
   pre_tasks:
     - name: Require DOMAIN_NAME and VPN admin secrets
       ansible.builtin.assert:
@@ -43,6 +45,11 @@
     xui_domain_name: "{{ lookup('env', 'DOMAIN_NAME') | default('', true) | trim }}"
     xui_vpn_username: "{{ lookup('env', 'VPN_ADMIN_USERNAME') | default('', true) | trim }}"
     xui_vpn_password: "{{ lookup('env', 'VPN_ADMIN_PASSWORD') | default('', true) | trim }}"
+    xui_telegram_admin_id: "{{ lookup('env', 'TELEGRAM_ADMIN_ID') | default('', true) | trim }}"
+    xui_telegram_bot_admin: "{{ lookup('env', 'TELEGRAM_BOT_ADMIN') | default('', true) | trim }}"
   tasks:
+    - ansible.builtin.include_tasks: tasks/panel/22-telegram-settings.yml
+    - ansible.builtin.include_tasks: tasks/panel/45-remove-local-inbound.yml
+      when: not (xui_create_default_local_inbound | default(true) | bool)
     - ansible.builtin.include_tasks: tasks/panel/50-api-inbound.yml
       when: xui_create_default_local_inbound | default(true) | bool

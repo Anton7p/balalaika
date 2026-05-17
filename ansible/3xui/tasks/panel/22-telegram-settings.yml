@@ -1,0 +1,98 @@
+---
+# tgBotToken + tgBotChatId через UI-сессию панели (/panel/panel/setting/*, не Bearer API).
+- name: Apply panel Telegram settings via panel UI API
+  when:
+    - xui_telegram_admin_id | default('') | trim | length > 0
+    - xui_telegram_bot_admin | default('') | trim | length > 0
+  block:
+    - name: Set panel public HTTPS origin for settings API
+      ansible.builtin.set_fact:
+        xui_panel_public_origin: "https://{{ xui_domain_name | trim }}"
+        _xui_ua: "{{ xui_panel_http_user_agent | default('Mozilla/5.0 (compatible; balalaika-ansible/1.0)') }}"
+
+    - name: Obtain panel UI session (public URL)
+      ansible.builtin.include_tasks: tasks/include-panel-ui-session-bearer.yml
+      vars:
+        xui_panel_origin: "{{ xui_panel_public_origin }}"
+        xui_panel_auth_label: "master public panel (telegram settings)"
+
+    - name: Refresh CSRF for settings POST
+      ansible.builtin.uri:
+        url: "{{ xui_panel_public_origin }}/panel/csrf-token"
+        method: GET
+        headers:
+          Accept: application/json
+          User-Agent: "{{ _xui_ua }}"
+          Referer: "{{ xui_panel_public_origin }}/panel/"
+          Cookie: "{{ xui_tpl_session_cookie }}"
+        status_code: 200
+        timeout: 60
+      register: xui_settings_csrf_res
+      no_log: true
+
+    - name: Fetch current panel settings (UI session)
+      ansible.builtin.uri:
+        url: "{{ xui_panel_public_origin }}/panel/panel/setting/all"
+        method: POST
+        headers:
+          Accept: application/json
+          Content-Type: application/json
+          X-CSRF-Token: "{{ xui_settings_csrf_res.json.obj }}"
+          X-Requested-With: XMLHttpRequest
+          User-Agent: "{{ _xui_ua }}"
+          Referer: "{{ xui_panel_public_origin }}/panel/"
+          Origin: "{{ xui_panel_public_origin }}"
+          Cookie: "{{ xui_tpl_session_cookie }}"
+        body_format: json
+        body: {}
+        status_code: 200
+        timeout: 90
+      register: xui_settings_all_res
+      no_log: true
+
+    - name: Assert panel settings fetch succeeded
+      ansible.builtin.assert:
+        that:
+          - xui_settings_all_res.json is defined
+          - xui_settings_all_res.json.success | default(false)
+          - xui_settings_all_res.json.obj is defined
+        fail_msg: "setting/all failed: {{ xui_settings_all_res.json.msg | default('unknown') }}"
+
+    - name: Merge Telegram fields into panel settings payload
+      ansible.builtin.set_fact:
+        xui_panel_settings_update: >-
+          {{
+            xui_settings_all_res.json.obj
+            | combine({
+                'tgBotEnable': true,
+                'tgBotToken': xui_telegram_bot_admin | trim,
+                'tgBotChatId': xui_telegram_admin_id | trim,
+              }, recursive=True)
+          }}
+
+    - name: Update panel settings (UI session)
+      ansible.builtin.uri:
+        url: "{{ xui_panel_public_origin }}/panel/panel/setting/update"
+        method: POST
+        headers:
+          Accept: application/json
+          Content-Type: application/json
+          X-CSRF-Token: "{{ xui_settings_csrf_res.json.obj }}"
+          X-Requested-With: XMLHttpRequest
+          User-Agent: "{{ _xui_ua }}"
+          Referer: "{{ xui_panel_public_origin }}/panel/"
+          Origin: "{{ xui_panel_public_origin }}"
+          Cookie: "{{ xui_tpl_session_cookie }}"
+        body_format: json
+        body: "{{ xui_panel_settings_update }}"
+        status_code: 200
+        timeout: 90
+      register: xui_settings_update_res
+      no_log: true
+
+    - name: Assert panel settings update succeeded
+      ansible.builtin.assert:
+        that:
+          - xui_settings_update_res.json is defined
+          - xui_settings_update_res.json.success | default(false)
+        fail_msg: "setting/update failed: {{ xui_settings_update_res.json.msg | default('unknown') }}"

@@ -18,7 +18,7 @@ xui_enable_fail2ban: "true"
 
 # Создавать ли один «локальный» inbound на master (deploy-panel, порт xui_inbound_port).
 # Если весь трафик только с нод — выставьте false и включите xui_create_per_node_inbounds.
-xui_create_default_local_inbound: true
+xui_create_default_local_inbound: false
 
 # По одному VLESS+REALITY inbound на каждую ноду на master с remark "{{ prefix }}-<ip-с-дефисами>" и nodeId.
 # Порты: xui_per_node_inbound_port_base + индекс ноды (сортировка имён в inventory). На ноде UFW откроет этот порт.

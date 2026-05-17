@@ -1,0 +1,53 @@
+---
+# Удалить локальный inbound на master (remark xui_inbound_remark), если трафик только с нод.
+- name: Set panel public HTTPS origin
+  ansible.builtin.set_fact:
+    xui_panel_public_origin: "https://{{ xui_domain_name | trim }}"
+
+- name: Obtain panel API bearer via UI login (public URL)
+  ansible.builtin.include_tasks: tasks/include-panel-ui-session-bearer.yml
+  vars:
+    xui_panel_origin: "{{ xui_panel_public_origin }}"
+    xui_panel_auth_label: "master public panel (remove local inbound)"
+
+- name: List inbounds on panel (Bearer)
+  ansible.builtin.uri:
+    url: "{{ xui_panel_public_origin }}/panel/panel/api/inbounds/list"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ xui_ui_session_bearer }}"
+      Accept: application/json
+    status_code: 200
+    timeout: 90
+  register: xui_ib_list_res
+  no_log: true
+
+- name: Collect local panel inbound ids by remark
+  ansible.builtin.set_fact:
+    xui_local_inbound_ids: >-
+      {{
+        xui_ib_list_res.json.obj | default([])
+        | selectattr('remark', 'defined')
+        | selectattr('remark', 'equalto', xui_inbound_remark)
+        | map(attribute='id')
+        | list
+      }}
+
+- name: Delete local panel inbound on master
+  ansible.builtin.uri:
+    url: "{{ xui_panel_public_origin }}/panel/panel/api/inbounds/del/{{ item }}"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ xui_ui_session_bearer }}"
+      Accept: application/json
+    status_code: 200
+    timeout: 90
+  loop: "{{ xui_local_inbound_ids }}"
+  when: xui_local_inbound_ids | length > 0
+  register: xui_ib_del_res
+  no_log: true
+
+- name: Report removed local inbound count
+  ansible.builtin.debug:
+    msg: "Removed {{ xui_local_inbound_ids | length }} local inbound(s) with remark {{ xui_inbound_remark }}."
+  when: xui_local_inbound_ids | length > 0
