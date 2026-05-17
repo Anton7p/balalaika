@@ -1,0 +1,42 @@
+---
+# Полный сброс стеков balalaika: бот (Postgres) на master, 3x-ui на master и нодах.
+# После этого — deploy-3xui (all) и deploy-bot.
+- name: Require non-empty nodes inventory
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Assert [nodes] is present and non-empty
+      ansible.builtin.assert:
+        that:
+          - (groups['nodes'] | default([])) | length > 0
+        fail_msg: >-
+          No hosts in group [nodes]. Export NODE_IPS and run ci/ci-write-inventory.yml.
+
+- name: Stop bot stack on master
+  hosts: master
+  become: true
+  gather_facts: false
+  vars:
+    deploy_root: "{{ lookup('env', 'DEPLOY_ROOT') | default('/opt/infrastructure', true) }}"
+    app_dir: "{{ deploy_root }}/app"
+  tasks:
+    - ansible.builtin.include_tasks: tasks/stop-app-master.yml
+
+- name: Stop 3x-ui panel on nodes
+  hosts: nodes
+  become: true
+  gather_facts: false
+  vars_files:
+    - ../3xui/defaults/main.yml
+  tasks:
+    - ansible.builtin.include_tasks: tasks/stop-panel.yml
+
+- name: Stop 3x-ui panel on master
+  hosts: master
+  become: true
+  gather_facts: false
+  vars_files:
+    - ../3xui/defaults/main.yml
+  tasks:
+    - ansible.builtin.include_tasks: tasks/stop-panel.yml
