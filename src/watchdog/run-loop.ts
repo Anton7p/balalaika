@@ -111,6 +111,14 @@ async function runFailover(
   }
 
   await callAppFailover(cfg, dead.inboundId, standby.inboundId);
+
+  if (emails.length > 0) {
+    const removed = await panel.purgeInboundClients(dead.inboundId, emails);
+    console.warn(
+      `[watchdog] purged ${String(removed)}/${String(emails.length)} clients from dead inbound ${dead.inboundId}`,
+    );
+  }
+
   console.warn('[watchdog] failover completed, app hook OK');
 }
 

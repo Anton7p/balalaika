@@ -115,7 +115,9 @@
 
 **Проверка (каждые `VPN_WATCHDOG_INTERVAL_SEC`, по умолчанию 60 с):** для каждой ноды из **`VPN_WATCHDOG_NODES_JSON`** с `"pool":"working"` — TCP на `host:port` (VPN-порт inbound); при заданном **`panelNodeId`** — ещё `POST …/nodes/probe/:id`. **`fail_threshold`** подряд (по умолчанию 3) → failover.
 
-**Failover:** первая живая нода с `"pool":"standby"` → `copyClients` на master → отключение мёртвого inbound → hook бота → рассылка новых **`vless://`**.
+**Failover:** первая живая нода с `"pool":"standby"` → `copyClients` на master → отключение мёртвого inbound → hook бота → **удаление клиентов с мёртвого inbound** (без дублей `tgId` / email) → рассылка новых **`vless://`**.
+
+Если админу пришло **«Подписок обновлено: 0 / N»** или пользователям не ушли ключи: hook ищет клиента на целевом inbound по email (в т.ч. `*_2` после `copyClients`), **tgId** и **panelSubId**, пишет новый **`vless://`** в Postgres. Повтор с master: `bash scripts/retry-vpn-failover-remote.sh <fromInboundId> <toInboundId>` (секрет = `VPN_WATCHDOG_HOOK_SECRET` или `ENCRYPTION_KEY`). Кнопка **«Мои ключи»** читает только Postgres — после успешного hook там будет новый ключ.
 
 Конфиг watchdog — в **`.env`** на master (шаблон [`app.env.j2`](../ansible/bot/templates/app.env.j2)): секрет **`NODE_IPS`** (тот же JSON, что в GitHub) + учётка панели; ноды резолвятся через API при каждой проверке. Пороги и **`VPN_WATCHDOG_HOOK_SECRET`** (можно = `ENCRYPTION_KEY`) — дефолты в плейбуке. **Не** отдельные секреты GitHub.
 

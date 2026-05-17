@@ -56,6 +56,40 @@ export class ContentLinksService {
     return result;
   }
 
+  private adminTelegramUserId(): string {
+    const raw = this.config.get<string | number>('TELEGRAM_ADMIN_ID');
+    if (raw === undefined || raw === null) {
+      return '';
+    }
+    return String(raw).trim();
+  }
+
+  /**
+   * URL для кнопки «Поддержка»: TELEGRAM_SUPPORT_URL или tg://user?id=TELEGRAM_ADMIN_ID.
+   */
+  resolveSupportContactUrl(): string | undefined {
+    const explicit = this.config.get<string>('TELEGRAM_SUPPORT_URL')?.trim() ?? '';
+    if (explicit.length > 0) {
+      return explicit;
+    }
+    const adminId = this.adminTelegramUserId();
+    if (/^\d+$/.test(adminId)) {
+      return `tg://user?id=${adminId}`;
+    }
+    return undefined;
+  }
+
+  /** То же, что resolveSupportContactUrl, но для экрана условий (кнопка обязательна). */
+  requireSupportContactUrl(): string {
+    const url = this.resolveSupportContactUrl();
+    if (url !== undefined && url.length > 0) {
+      return url;
+    }
+    throw new Error(
+      'Support contact is not configured: set TELEGRAM_SUPPORT_URL or TELEGRAM_ADMIN_ID',
+    );
+  }
+
   getPlatformGuides(): PlatformGuidesBundle {
     const keys: PlatformGuideKey[] = ['IOS', 'ANDROID', 'WINDOWS', 'MACOS'];
     const out = {} as PlatformGuidesBundle;

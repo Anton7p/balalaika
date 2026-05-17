@@ -4,7 +4,6 @@ import { ADMIN_MESSAGES } from './admin-messages';
 export const MESSAGES = {
   MAIN_TITLE:
     '⚡️ Добро пожаловать в самый быстрый и стабильный VPN!\n\n' +
-    '➖ Нам более года\n' +
     '➖ Высокая скорость\n' +
     '➖ Приватность\n' +
     '➖ Быстрая поддержка\n' +
@@ -30,7 +29,9 @@ export const MESSAGES = {
   PLATFORM_TITLE: (platform: string) => `📱 ${platform}`,
 
   SUPPORT:
-    '⚖️ Условия и поддержка\n\nНаши ресурсы:\n▬ FAQ и ответы на вопросы\n▬ Условия сервиса\n▬ Политика конфиденциальности',
+    '⚖️ Условия\n\n' +
+    `Вопросы по оплате и VPN — кнопка «${UI_LABELS.SUPPORT}» откроет чат с администратором.\n\n` +
+    'Наши ресурсы:\n▬ FAQ и ответы на вопросы\n▬ Условия сервиса\n▬ Политика конфиденциальности',
 
   MY_KEYS_ACTIVE: (expiryDate: string, key: string) =>
     `🧾 Мои ключи\n\n` +

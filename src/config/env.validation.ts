@@ -64,6 +64,11 @@ export class EnvVars {
   @IsString()
   TELEGRAM_ADMIN_ID?: string;
 
+  /** Ссылка «написать в поддержку» (https://t.me/…). Если пусто — tg://user?id=TELEGRAM_ADMIN_ID. */
+  @IsOptional()
+  @IsString()
+  TELEGRAM_SUPPORT_URL?: string;
+
   @IsString()
   @IsNotEmpty()
   DATABASE_URL!: string;

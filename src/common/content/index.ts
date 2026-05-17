@@ -23,7 +23,7 @@ export {
   emptyKeysKeyboard,
   extendSuccessKeyboard,
   keyDisplayKeyboard,
-  legalKeyboard,
+  supportKeyboard,
   mainKeyboard,
   platformDetailKeyboard,
   platformKeyboard,

@@ -147,7 +147,9 @@ export class WatchdogPanelSession {
     return map;
   }
 
-  async listClientEmails(inboundId: number): Promise<string[]> {
+  private async listInboundClients(
+    inboundId: number,
+  ): Promise<readonly { id: string; email: string }[]> {
     await this.ensureLogin();
     const res = await this.http.get<{ obj?: { settings?: string } }>(
       this.apiPath(`/panel/api/inbounds/get/${inboundId}`),
@@ -161,16 +163,56 @@ export class WatchdogPanelSession {
     if (!Array.isArray(settings.clients)) {
       return [];
     }
-    const emails: string[] = [];
+    const out: { id: string; email: string }[] = [];
     for (const c of settings.clients) {
-      if (typeof c === 'object' && c !== null) {
-        const email = String((c as { email?: string }).email ?? '').trim();
-        if (email.length > 0) {
-          emails.push(email);
-        }
+      if (typeof c !== 'object' || c === null) {
+        continue;
+      }
+      const id = String((c as { id?: string }).id ?? '').trim();
+      const email = String((c as { email?: string }).email ?? '').trim();
+      if (id.length > 0 && email.length > 0) {
+        out.push({ id, email });
       }
     }
-    return emails;
+    return out;
+  }
+
+  async listClientEmails(inboundId: number): Promise<string[]> {
+    const clients = await this.listInboundClients(inboundId);
+    return clients.map((c) => c.email);
+  }
+
+  async deleteClientByEmail(inboundId: number, email: string): Promise<void> {
+    const enc = encodeURIComponent(email);
+    const data = await this.postJson<PanelMsg>(
+      `/panel/api/inbounds/${inboundId}/delClientByEmail/${enc}`,
+      {},
+    );
+    if (!data.success) {
+      throw new Error(
+        `delClientByEmail ${email}: ${data.msg ?? 'unknown'}`,
+      );
+    }
+  }
+
+  /** Удаляет клиентов с inbound (после успешного copy + hook). */
+  async purgeInboundClients(
+    inboundId: number,
+    emails: readonly string[],
+  ): Promise<number> {
+    let removed = 0;
+    for (const email of emails) {
+      try {
+        await this.deleteClientByEmail(inboundId, email);
+        removed += 1;
+      } catch (err) {
+        console.warn(
+          `[watchdog] purge inbound ${inboundId} client ${email} failed`,
+          err,
+        );
+      }
+    }
+    return removed;
   }
 
   async copyClients(

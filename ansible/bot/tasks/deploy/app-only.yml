@@ -41,12 +41,24 @@
     cmd: docker compose pull app
     chdir: "{{ app_dir }}"
 
-- name: Start/update bot application stack
+- name: Start/update bot application stack (recreate app/watchdog so .env changes apply)
   ansible.builtin.command:
-    cmd: docker compose up -d
+    cmd: docker compose up -d --force-recreate app vpn-watchdog
     chdir: "{{ app_dir }}"
   register: app_up
   changed_when: "'Started' in app_up.stdout or 'Recreated' in app_up.stdout or 'Creating' in app_up.stdout"
+
+- name: Verify NODE_IPS inside app container is valid JSON with addresses
+  ansible.builtin.command:
+    cmd: >-
+      docker compose exec -T app node -e
+      "const v=process.env.NODE_IPS; if(!v) throw new Error('NODE_IPS empty');
+      const p=JSON.parse(v); if(!Array.isArray(p)||!p.length) throw new Error('not array');
+      if(!String(p[0].address||'').trim()) throw new Error('missing address');
+      console.log('NODE_IPS ok:', p.length, 'nodes')"
+    chdir: "{{ app_dir }}"
+  register: node_ips_smoke
+  changed_when: false
 
 - name: Smoke check bot app health endpoint
   block:

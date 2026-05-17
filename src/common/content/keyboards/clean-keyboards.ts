@@ -97,15 +97,19 @@ export function platformKeyboard(
   return Markup.inlineKeyboard(rows);
 }
 
-export function legalKeyboard(
+export function supportKeyboard(
   links: Record<LegalLinkKey, LegalLink>,
+  supportContactUrl: string,
 ): ReturnType<typeof Markup.inlineKeyboard> {
   const rows: InlineKbGrid = [
+    [Markup.button.url(UI_LABELS.SUPPORT, supportContactUrl)],
+  ];
+  rows.push(
     [Markup.button.url(links.FAQ.name, links.FAQ.url)],
     [Markup.button.url(links.TERMS.name, links.TERMS.url)],
     [Markup.button.url(links.PRIVACY.name, links.PRIVACY.url)],
     [Markup.button.callback(UI_LABELS.BACK_TO_MENU, ACTIONS.START_MENU)],
-  ];
+  );
   return Markup.inlineKeyboard(rows);
 }
 

@@ -14,9 +14,11 @@
     app_image: "{{ lookup('env', 'APP_IMAGE') }}"
     telegram_bot_token: "{{ lookup('env', 'TELEGRAM_BOT_TOKEN') }}"
     telegram_admin_id: "{{ lookup('env', 'TELEGRAM_ADMIN_ID') | default('', true) }}"
+    telegram_support_url: "{{ lookup('env', 'TELEGRAM_SUPPORT_URL') | default('', true) }}"
     encryption_key: "{{ lookup('env', 'ENCRYPTION_KEY') }}"
     app_db_password: "{{ lookup('env', 'APP_DB_PASSWORD') | default(vpn_admin_password, true) }}"
-    node_ips: "{{ lookup('env', 'NODE_IPS') | trim }}"
+    # | string — иначе Jinja превращает JSON из env в list/dict и в .env попадает Python repr (не JSON).
+    node_ips: "{{ lookup('env', 'NODE_IPS') | trim | string }}"
     vpn_inbound_client_limit: "{{ lookup('env', 'VPN_INBOUND_CLIENT_LIMIT') | default('200', true) }}"
     vpn_watchdog_enabled: "{{ lookup('env', 'VPN_WATCHDOG_ENABLED') | default('true', true) }}"
     vpn_watchdog_interval_sec: "{{ lookup('env', 'VPN_WATCHDOG_INTERVAL_SEC') | default('60', true) }}"

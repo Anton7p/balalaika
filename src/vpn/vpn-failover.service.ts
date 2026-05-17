@@ -11,8 +11,17 @@ import { REDIS_CLIENT } from '../redis/redis.constants';
 import { LoadBalancerService } from './load-balancer.service';
 import { NodeQueueRoutingService } from './node-queue-routing.service';
 import { PanelNodeRegistryService } from './panel-node-registry.service';
+import type { VpnProvider } from './vpn-provider.interface';
 import { REDIS_WORKING_INBOUND_IDS_KEY } from './vpn-routing.constants';
+import { VPN_PROVIDER } from './vpn.tokens';
 import { XuiPanelHttpClient } from './xui-panel-http.client';
+
+interface PanelInboundClient {
+  readonly id: string;
+  readonly email: string;
+  readonly tgId: number;
+  readonly subId: string;
+}
 
 export interface VpnFailoverRequest {
   readonly fromInboundId: number;
@@ -26,6 +35,7 @@ export class VpnFailoverService {
     private readonly prisma: PrismaService,
     private readonly crypto: CryptoService,
     private readonly panel: XuiPanelHttpClient,
+    @Inject(VPN_PROVIDER) private readonly vpn: VpnProvider,
     private readonly loadBalancer: LoadBalancerService,
     private readonly panelRegistry: PanelNodeRegistryService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
@@ -46,7 +56,12 @@ export class VpnFailoverService {
         expiresAt: { gt: now },
         panelClientUuid: { not: null },
       },
-      include: { user: { select: { telegramId: true } } },
+      select: {
+        id: true,
+        panelClientUuid: true,
+        panelSubId: true,
+        user: { select: { telegramId: true } },
+      },
     });
 
     let notified = 0;
@@ -56,21 +71,31 @@ export class VpnFailoverService {
         continue;
       }
       try {
-        const email = await this.findEmailByUuid(req.fromInboundId, uuid);
-        const newUuid = await this.findUuidByEmailWithRetry(
+        const onTarget = await this.resolveTargetClientWithRetry(row, req);
+        const vless = await this.vpn.fetchClientVlessUri(
           req.toInboundId,
-          email,
+          onTarget.email,
         );
-        const vless = await this.fetchVlessUri(req.toInboundId, email);
         const cipher = this.crypto.encryptUtf8(vless);
         await this.prisma.subscription.update({
           where: { id: row.id },
           data: {
             panelInboundId: req.toInboundId,
-            panelClientUuid: newUuid,
+            panelClientUuid: onTarget.id,
             vpnPayloadCipher: cipher,
+            ...(onTarget.subId.length > 0
+              ? { panelSubId: onTarget.subId }
+              : {}),
           },
         });
+        this.log.info(
+          {
+            subscriptionId: row.id,
+            toInboundId: req.toInboundId,
+            panelEmail: onTarget.email,
+          },
+          'vpn_failover_subscription_persisted',
+        );
         await this.sendTelegramHtml(
           row.user.telegramId,
           NOTIFY_HTML.VPN_NODE_FAILOVER(),
@@ -82,7 +107,13 @@ export class VpnFailoverService {
         notified += 1;
       } catch (err: unknown) {
         this.log.error(
-          { err, subscriptionId: row.id, fromInboundId: req.fromInboundId },
+          {
+            err,
+            subscriptionId: row.id,
+            fromInboundId: req.fromInboundId,
+            toInboundId: req.toInboundId,
+            telegramId: String(row.user.telegramId),
+          },
           'vpn_failover_user_notify_failed',
         );
       }
@@ -113,6 +144,111 @@ export class VpnFailoverService {
     return { migrated: rows.length, notified };
   }
 
+  private async resolveTargetClientWithRetry(
+    row: {
+      readonly panelClientUuid: string | null;
+      readonly panelSubId: string | null;
+      readonly user: { readonly telegramId: bigint };
+    },
+    req: VpnFailoverRequest,
+    attempts = 8,
+    delayMs = 500,
+  ): Promise<PanelInboundClient> {
+    let lastErr: Error | undefined;
+    for (let i = 0; i < attempts; i += 1) {
+      try {
+        return await this.resolveTargetClient(row, req);
+      } catch (err: unknown) {
+        lastErr = err instanceof Error ? err : new Error(String(err));
+        if (i < attempts - 1) {
+          await new Promise((r) => setTimeout(r, delayMs));
+        }
+      }
+    }
+    throw lastErr ?? new Error('resolveTargetClient failed');
+  }
+
+  /**
+   * Клиент на целевом inbound после copyClients.
+   * 1) panelSubId в Postgres; 2) email со старого inbound; 3) tgId / суффикс email на целевом.
+   */
+  private async resolveTargetClient(
+    row: {
+      readonly panelClientUuid: string | null;
+      readonly panelSubId: string | null;
+      readonly user: { readonly telegramId: bigint };
+    },
+    req: VpnFailoverRequest,
+  ): Promise<PanelInboundClient> {
+    const targetClients = await this.loadInboundClients(req.toInboundId);
+    const subId = row.panelSubId?.trim() ?? '';
+    if (subId.length > 0) {
+      const bySub = targetClients.find((c) => c.subId === subId);
+      if (bySub !== undefined) {
+        return bySub;
+      }
+    }
+
+    const uuid = row.panelClientUuid?.trim() ?? '';
+    if (uuid.length > 0) {
+      try {
+        const sourceEmail = await this.findEmailByUuid(
+          req.fromInboundId,
+          uuid,
+        );
+        return this.matchClientInList(
+          req.toInboundId,
+          sourceEmail,
+          targetClients,
+        );
+      } catch (err: unknown) {
+        const byTg = this.findClientByTelegramId(
+          targetClients,
+          row.user.telegramId,
+        );
+        if (byTg !== undefined) {
+          return byTg;
+        }
+        throw err;
+      }
+    }
+
+    const byTg = this.findClientByTelegramId(
+      targetClients,
+      row.user.telegramId,
+    );
+    if (byTg !== undefined) {
+      return byTg;
+    }
+    throw new Error(
+      `no client on inbound ${req.toInboundId} for telegram ${row.user.telegramId.toString()}`,
+    );
+  }
+
+  private findClientByTelegramId(
+    clients: readonly PanelInboundClient[],
+    telegramId: bigint,
+  ): PanelInboundClient | undefined {
+    const wantTg = this.telegramIdToPanelNumber(telegramId);
+    const suffix = `-${telegramId.toString()}`;
+    for (const c of clients) {
+      if (wantTg > 0 && c.tgId === wantTg) {
+        return c;
+      }
+      if (c.email.endsWith(suffix)) {
+        return c;
+      }
+    }
+    return undefined;
+  }
+
+  private telegramIdToPanelNumber(id: bigint): number {
+    if (id > BigInt(Number.MAX_SAFE_INTEGER)) {
+      return 0;
+    }
+    return Number(id);
+  }
+
   private async findEmailByUuid(
     inboundId: number,
     clientUuid: string,
@@ -126,44 +262,36 @@ export class VpnFailoverService {
     throw new Error(`client ${clientUuid} not found on inbound ${inboundId}`);
   }
 
-  /** После copyClients на целевом inbound у клиента часто новый id — ищем по email. */
-  private async findUuidByEmailWithRetry(
+  /**
+   * После copyClients 3x-ui часто меняет email (например `user@x` → `user@x_2` на inbound 2).
+   */
+  private matchClientInList(
     inboundId: number,
-    email: string,
-    attempts = 5,
-    delayMs = 400,
-  ): Promise<string> {
-    let lastErr: Error | undefined;
-    for (let i = 0; i < attempts; i += 1) {
-      try {
-        return await this.findUuidByEmail(inboundId, email);
-      } catch (err: unknown) {
-        lastErr = err instanceof Error ? err : new Error(String(err));
-        if (i < attempts - 1) {
-          await new Promise((r) => setTimeout(r, delayMs));
-        }
-      }
-    }
-    throw lastErr ?? new Error(`client ${email} not found on inbound ${inboundId}`);
-  }
+    sourceEmail: string,
+    clients: readonly PanelInboundClient[],
+  ): PanelInboundClient {
+    const want = sourceEmail.trim().toLowerCase();
+    const suffixInbound = `${want}_${String(inboundId)}`;
+    let prefixMatch: PanelInboundClient | undefined;
 
-  private async findUuidByEmail(
-    inboundId: number,
-    email: string,
-  ): Promise<string> {
-    const want = email.trim().toLowerCase();
-    const clients = await this.loadInboundClients(inboundId);
     for (const c of clients) {
-      if (c.email.toLowerCase() === want) {
-        return c.id;
+      const e = c.email.toLowerCase();
+      if (e === want || e === suffixInbound) {
+        return c;
+      }
+      if (e.startsWith(`${want}_`) && prefixMatch === undefined) {
+        prefixMatch = c;
       }
     }
-    throw new Error(`client ${email} not found on inbound ${inboundId}`);
+    if (prefixMatch !== undefined) {
+      return prefixMatch;
+    }
+    throw new Error(`client ${sourceEmail} not found on inbound ${inboundId}`);
   }
 
   private async loadInboundClients(
     inboundId: number,
-  ): Promise<readonly { id: string; email: string }[]> {
+  ): Promise<readonly PanelInboundClient[]> {
     const data = await this.panel.getJson<{
       obj?: { settings?: string };
     }>(this.panel.apiPath(`/panel/api/inbounds/get/${inboundId}`));
@@ -175,45 +303,37 @@ export class VpnFailoverService {
     if (!Array.isArray(settings.clients)) {
       throw new Error(`inbound ${inboundId} settings.clients missing`);
     }
-    const out: { id: string; email: string }[] = [];
+    const out: PanelInboundClient[] = [];
     for (const c of settings.clients) {
       if (typeof c !== 'object' || c === null) {
         continue;
       }
-      const id = String((c as { id?: string }).id ?? '').trim();
-      const email = String((c as { email?: string }).email ?? '').trim();
-      if (id.length > 0 && email.length > 0) {
-        out.push({ id, email });
+      const raw = c as {
+        id?: string;
+        email?: string;
+        tgId?: number | string;
+        subId?: string;
+      };
+      const id = String(raw.id ?? '').trim();
+      const email = String(raw.email ?? '').trim();
+      if (id.length === 0 || email.length === 0) {
+        continue;
       }
+      const tgRaw = raw.tgId;
+      const tgId =
+        typeof tgRaw === 'number'
+          ? tgRaw
+          : typeof tgRaw === 'string'
+            ? Number.parseInt(tgRaw, 10) || 0
+            : 0;
+      out.push({
+        id,
+        email,
+        tgId,
+        subId: String(raw.subId ?? '').trim(),
+      });
     }
     return out;
-  }
-
-  private async fetchVlessUri(
-    inboundId: number,
-    email: string,
-  ): Promise<string> {
-    const enc = encodeURIComponent(email);
-    const data = await this.panel.getJson<{
-      success?: boolean;
-      msg?: string;
-      obj?: unknown;
-    }>(
-      this.panel.apiPath(
-        `/panel/api/inbounds/getClientLinks/${inboundId}/${enc}`,
-      ),
-    );
-    if (data.success !== true) {
-      throw new Error(
-        `getClientLinks: ${typeof data.msg === 'string' ? data.msg : 'unknown'}`,
-      );
-    }
-    const s = JSON.stringify(data.obj ?? '');
-    const m = s.match(/vless:\/\/[^\s"']+/);
-    if (m === null) {
-      throw new Error('no vless in getClientLinks');
-    }
-    return m[0];
   }
 
   /** Для админского Telegram: IP:port (inbound N) из NODE_IPS, иначе только id. */

@@ -4,6 +4,7 @@ export const UI_LABELS = {
   MY_KEYS: '🔑 Мои ключи',
   HOW_TO_CONNECT: '🧭 Как подключить',
   LEGAL: '⚖️ Условия',
+  SUPPORT: '💬 Поддержка',
   BACK_TO_MENU: '⤴️ В меню',
   COPY_KEY: '📋 Скопировать ключ',
   PLATFORM_ANDROID: '🤖 Android ↗️',

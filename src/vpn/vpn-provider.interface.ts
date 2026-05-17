@@ -42,6 +42,8 @@ export interface VpnProvider {
 
   deleteClient(externalId: string): Promise<void>;
   getStats(externalId: string): Promise<Record<string, unknown>>;
+  /** Ссылка vless:// для клиента на inbound (с доп. полями REALITY для Happ). */
+  fetchClientVlessUri(inboundId: number, email: string): Promise<string>;
   /** Быстрая проверка доступности интеграции (для readiness). */
   probeIntegration(): Promise<boolean>;
 }

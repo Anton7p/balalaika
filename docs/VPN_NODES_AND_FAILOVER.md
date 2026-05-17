@@ -19,18 +19,13 @@ Ansible и версии: **[`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md)**, *
 - **Новые** клиенты: первый inbound из **`VPN_WORKING_INBOUND_IDS`** с числом клиентов **&lt; `VPN_INBOUND_CLIENT_LIMIT`** (`src/vpn/load-balancer.service.ts`). **Продление** — inbound из **`subscriptions.panel_inbound_id`**.
 - Статусы рабочих / запасных и два сценария (лимит vs авария): **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)** §3.2–3.3.
 - **Auto-failover:** контейнер **`vpn-watchdog`** на master + hook **`POST /internal/vpn/failover`** у бота — §6.0 **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)**.
+- **Сбой рассылки, «0 / N», `copyClients` и email с `_2`:** пошагово **[`VPN_FAILOVER_RUNBOOK.md`](VPN_FAILOVER_RUNBOOK.md)**.
 
 ---
 
 ## Если нода «Offline» в панели
 
 Чаще всего: на master в записи ноды **устаревший API token** или неверный **`basePath`**. См. **[`PANEL_MASTER_NODES.md` — «Нода в UI показывает Offline»](PANEL_MASTER_NODES.md#нода-в-ui-показывает-offline)**.
-
----
-
-## Что нужно для автоматизации failover в коде
-
-Отдельная разработка: здоровье нод, выбор запасной из пула, вызов API копирования клиентов, обновление конфига бота, очередь рассылки **`vless://`**. До этого момента — **ручной runbook** в **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)**.
 
 ---
 

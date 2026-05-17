@@ -50,9 +50,7 @@ const SUB_EMAIL_PHRASES = [
   'balalaika-vsegda-ryadom',
   'gromkaya-balalaika',
   'prosto-pushka',
-  'huak-i-rabotaet',
-  'vse-zaebis-rabotaet',
-] as const;
+] as const;  
 
 @Injectable()
 export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
@@ -651,6 +649,10 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
   getStats(externalId: string): Promise<Record<string, unknown>> {
     void externalId;
     return Promise.resolve({});
+  }
+
+  fetchClientVlessUri(inboundId: number, email: string): Promise<string> {
+    return this.fetchVlessUriForClient(inboundId, email);
   }
 
   async probeIntegration(): Promise<boolean> {
