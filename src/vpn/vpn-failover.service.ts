@@ -56,13 +56,18 @@ export class VpnFailoverService {
         continue;
       }
       try {
-        const email = await this.findClientEmail(req.toInboundId, uuid);
+        const email = await this.findEmailByUuid(req.fromInboundId, uuid);
+        const newUuid = await this.findUuidByEmailWithRetry(
+          req.toInboundId,
+          email,
+        );
         const vless = await this.fetchVlessUri(req.toInboundId, email);
         const cipher = this.crypto.encryptUtf8(vless);
         await this.prisma.subscription.update({
           where: { id: row.id },
           data: {
             panelInboundId: req.toInboundId,
+            panelClientUuid: newUuid,
             vpnPayloadCipher: cipher,
           },
         });
@@ -108,34 +113,80 @@ export class VpnFailoverService {
     return { migrated: rows.length, notified };
   }
 
-  private async findClientEmail(
+  private async findEmailByUuid(
     inboundId: number,
     clientUuid: string,
   ): Promise<string> {
+    const clients = await this.loadInboundClients(inboundId);
+    for (const c of clients) {
+      if (c.id === clientUuid && c.email.length > 0) {
+        return c.email;
+      }
+    }
+    throw new Error(`client ${clientUuid} not found on inbound ${inboundId}`);
+  }
+
+  /** После copyClients на целевом inbound у клиента часто новый id — ищем по email. */
+  private async findUuidByEmailWithRetry(
+    inboundId: number,
+    email: string,
+    attempts = 5,
+    delayMs = 400,
+  ): Promise<string> {
+    let lastErr: Error | undefined;
+    for (let i = 0; i < attempts; i += 1) {
+      try {
+        return await this.findUuidByEmail(inboundId, email);
+      } catch (err: unknown) {
+        lastErr = err instanceof Error ? err : new Error(String(err));
+        if (i < attempts - 1) {
+          await new Promise((r) => setTimeout(r, delayMs));
+        }
+      }
+    }
+    throw lastErr ?? new Error(`client ${email} not found on inbound ${inboundId}`);
+  }
+
+  private async findUuidByEmail(
+    inboundId: number,
+    email: string,
+  ): Promise<string> {
+    const want = email.trim().toLowerCase();
+    const clients = await this.loadInboundClients(inboundId);
+    for (const c of clients) {
+      if (c.email.toLowerCase() === want) {
+        return c.id;
+      }
+    }
+    throw new Error(`client ${email} not found on inbound ${inboundId}`);
+  }
+
+  private async loadInboundClients(
+    inboundId: number,
+  ): Promise<readonly { id: string; email: string }[]> {
     const data = await this.panel.getJson<{
       obj?: { settings?: string };
     }>(this.panel.apiPath(`/panel/api/inbounds/get/${inboundId}`));
     const settingsRaw = data.obj?.settings;
     if (typeof settingsRaw !== 'string') {
-      throw new Error('inbound settings missing after copy');
+      throw new Error(`inbound ${inboundId} settings missing`);
     }
     const settings = JSON.parse(settingsRaw) as { clients?: unknown };
     if (!Array.isArray(settings.clients)) {
-      throw new Error('settings.clients missing');
+      throw new Error(`inbound ${inboundId} settings.clients missing`);
     }
+    const out: { id: string; email: string }[] = [];
     for (const c of settings.clients) {
-      if (
-        typeof c === 'object' &&
-        c !== null &&
-        (c as { id?: string }).id === clientUuid
-      ) {
-        const email = String((c as { email?: string }).email ?? '').trim();
-        if (email.length > 0) {
-          return email;
-        }
+      if (typeof c !== 'object' || c === null) {
+        continue;
+      }
+      const id = String((c as { id?: string }).id ?? '').trim();
+      const email = String((c as { email?: string }).email ?? '').trim();
+      if (id.length > 0 && email.length > 0) {
+        out.push({ id, email });
       }
     }
-    throw new Error(`client ${clientUuid} not found on inbound ${inboundId}`);
+    return out;
   }
 
   private async fetchVlessUri(
