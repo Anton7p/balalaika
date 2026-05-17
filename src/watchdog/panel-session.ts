@@ -195,24 +195,26 @@ export class WatchdogPanelSession {
     }
   }
 
-  /** Удаляет клиентов с inbound (после успешного copy + hook). */
-  async purgeInboundClients(
-    inboundId: number,
-    emails: readonly string[],
-  ): Promise<number> {
-    let removed = 0;
-    for (const email of emails) {
-      try {
-        await this.deleteClientByEmail(inboundId, email);
-        removed += 1;
-      } catch (err) {
-        console.warn(
-          `[watchdog] purge inbound ${inboundId} client ${email} failed`,
-          err,
-        );
-      }
+  /** Удаляет inbound на master (клиенты и статистика — в БД панели). */
+  async deleteInbound(inboundId: number): Promise<void> {
+    const data = await this.postJson<PanelMsg>(
+      `/panel/api/inbounds/del/${inboundId}`,
+      {},
+    );
+    if (!data.success) {
+      throw new Error(`deleteInbound ${inboundId}: ${data.msg ?? 'unknown'}`);
     }
-    return removed;
+  }
+
+  /** Убирает ноду из раздела Nodes на master (inbound’ы сами не удаляются). */
+  async deleteNode(panelNodeId: number): Promise<void> {
+    const data = await this.postJson<PanelMsg>(
+      `/panel/api/nodes/del/${panelNodeId}`,
+      {},
+    );
+    if (!data.success) {
+      throw new Error(`deleteNode ${panelNodeId}: ${data.msg ?? 'unknown'}`);
+    }
   }
 
   async copyClients(

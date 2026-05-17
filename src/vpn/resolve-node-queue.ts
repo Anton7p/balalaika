@@ -29,9 +29,14 @@ export function resolveNodeQueueFromLists(
   addresses: readonly string[],
   inbounds: readonly InboundRow[],
   nodeRows: readonly PanelNodeRow[],
-  options: { remarkPrefix: string; portBase: number },
+  options: {
+    remarkPrefix: string;
+    portBase: number;
+    /** Watchdog: после delete inbound/node не падать, пропустить IP без inbound. */
+    skipMissingInbounds?: boolean;
+  },
 ): ResolvedQueueNode[] {
-  const { remarkPrefix, portBase } = options;
+  const { remarkPrefix, portBase, skipMissingInbounds = false } = options;
   const resolved: ResolvedQueueNode[] = [];
 
   for (let i = 0; i < addresses.length; i++) {
@@ -48,6 +53,9 @@ export function resolveNodeQueueFromLists(
       ) ?? undefined;
 
     if (inbound?.id === undefined) {
+      if (skipMissingInbounds) {
+        continue;
+      }
       throw new Error(
         `No inbound on master for NODE_IPS[${i}] ${address} (expected remark ${remark}). Run deploy-nodes.`,
       );

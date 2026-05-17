@@ -65,8 +65,18 @@ export async function resolveWatchdogNodesFromNodeIps(
     addresses,
     inboundsRes.obj ?? [],
     nodeRows,
-    { remarkPrefix: REMARK_PREFIX, portBase: PORT_BASE },
+    {
+      remarkPrefix: REMARK_PREFIX,
+      portBase: PORT_BASE,
+      skipMissingInbounds: true,
+    },
   );
+
+  if (queue.length === 0) {
+    throw new Error(
+      'NODE_IPS: no inbounds on master for any address (all removed?). Run deploy-nodes.',
+    );
+  }
 
   const idx =
     workingIndex >= 0 && workingIndex < queue.length ? workingIndex : 0;

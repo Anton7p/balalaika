@@ -104,19 +104,32 @@ async function runFailover(
   if (emails.length > 0) {
     await panel.copyClients(standby.inboundId, dead.inboundId, emails);
   }
-  try {
-    await panel.setInboundEnabled(dead.inboundId, false);
-  } catch (err) {
-    console.warn('[watchdog] setEnable dead inbound failed', err);
-  }
-
   await callAppFailover(cfg, dead.inboundId, standby.inboundId);
 
-  if (emails.length > 0) {
-    const removed = await panel.purgeInboundClients(dead.inboundId, emails);
+  try {
+    await panel.deleteInbound(dead.inboundId);
     console.warn(
-      `[watchdog] purged ${String(removed)}/${String(emails.length)} clients from dead inbound ${dead.inboundId}`,
+      `[watchdog] deleted dead inbound ${dead.inboundId} (${dead.host}) on master`,
     );
+  } catch (err) {
+    console.warn(
+      `[watchdog] deleteInbound ${dead.inboundId} failed (clients may remain in panel UI until node is back)`,
+      err,
+    );
+  }
+
+  if (dead.panelNodeId !== undefined && dead.panelNodeId > 0) {
+    try {
+      await panel.deleteNode(dead.panelNodeId);
+      console.warn(
+        `[watchdog] deleted node ${dead.panelNodeId} (${dead.host}) from master panel`,
+      );
+    } catch (err) {
+      console.warn(
+        `[watchdog] deleteNode ${dead.panelNodeId} failed`,
+        err,
+      );
+    }
   }
 
   console.warn('[watchdog] failover completed, app hook OK');
