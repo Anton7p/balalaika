@@ -4,6 +4,7 @@ import type Redis from 'ioredis';
 import { TelegrafModule } from 'nestjs-telegraf';
 import type { Context } from 'telegraf';
 import { session } from 'telegraf';
+import { ContentConfigModule } from '../common/content/content-config.module';
 import { REDIS_CLIENT } from '../redis/redis.constants';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { UsersModule } from '../users/users.module';
@@ -24,6 +25,7 @@ import { TelegramStartUpdate } from './updates/telegram-start.update';
 @Module({
   imports: [
     ConfigModule,
+    ContentConfigModule,
     UsersModule,
     SubscriptionsModule,
     VpnModule,

@@ -26,7 +26,9 @@ function formatPaidPlanLabel(option: {
   return `${option.label} ✦ ${option.devices} 📱 ✦ ${option.price}₽`;
 }
 
-export function mainKeyboard(): ReturnType<typeof Markup.inlineKeyboard> {
+export function mainKeyboard(
+  supportContactUrl?: string,
+): ReturnType<typeof Markup.inlineKeyboard> {
   const rows: InlineKbGrid = [
     [Markup.button.callback(UI_LABELS.QUICK_START, ACTIONS.BUY_MENU)],
     [
@@ -35,6 +37,9 @@ export function mainKeyboard(): ReturnType<typeof Markup.inlineKeyboard> {
     ],
     [Markup.button.callback(UI_LABELS.LEGAL, ACTIONS.LEGAL)],
   ];
+  if (supportContactUrl !== undefined && supportContactUrl.length > 0) {
+    rows.push([Markup.button.url(UI_LABELS.SUPPORT, supportContactUrl)]);
+  }
   return Markup.inlineKeyboard(rows);
 }
 
@@ -76,8 +81,10 @@ export function durationKeyboard(): ReturnType<typeof Markup.inlineKeyboard> {
   return Markup.inlineKeyboard(rows);
 }
 
-export function emptyKeysKeyboard(): ReturnType<typeof Markup.inlineKeyboard> {
-  return mainKeyboard();
+export function emptyKeysKeyboard(
+  supportContactUrl?: string,
+): ReturnType<typeof Markup.inlineKeyboard> {
+  return mainKeyboard(supportContactUrl);
 }
 
 export function platformKeyboard(
@@ -97,20 +104,24 @@ export function platformKeyboard(
   return Markup.inlineKeyboard(rows);
 }
 
-export function supportKeyboard(
+export function legalKeyboard(
   links: Record<LegalLinkKey, LegalLink>,
-  supportContactUrl: string,
 ): ReturnType<typeof Markup.inlineKeyboard> {
-  const rows: InlineKbGrid = [
-    [Markup.button.url(UI_LABELS.SUPPORT, supportContactUrl)],
-  ];
-  rows.push(
+  return Markup.inlineKeyboard([
     [Markup.button.url(links.FAQ.name, links.FAQ.url)],
     [Markup.button.url(links.TERMS.name, links.TERMS.url)],
     [Markup.button.url(links.PRIVACY.name, links.PRIVACY.url)],
     [Markup.button.callback(UI_LABELS.BACK_TO_MENU, ACTIONS.START_MENU)],
-  );
-  return Markup.inlineKeyboard(rows);
+  ]);
+}
+
+export function supportOpenKeyboard(
+  supportContactUrl: string,
+): ReturnType<typeof Markup.inlineKeyboard> {
+  return Markup.inlineKeyboard([
+    [Markup.button.url(UI_LABELS.SUPPORT, supportContactUrl)],
+    [Markup.button.callback(UI_LABELS.BACK_TO_MENU, ACTIONS.START_MENU)],
+  ]);
 }
 
 export function keyDisplayKeyboard(): ReturnType<typeof Markup.inlineKeyboard> {

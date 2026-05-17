@@ -6,9 +6,6 @@ export const ACTIONS = {
   INSTRUCTIONS: 'instructions',
   LEGAL: 'legal',
 
-  /** Алиас LEGAL: callback «условия» и маршрут SupportCommand */
-  SUPPORT: 'legal',
-
   PLATFORM_IOS: 'platform_ios',
   PLATFORM_ANDROID: 'platform_android',
   PLATFORM_WINDOWS: 'platform_windows',

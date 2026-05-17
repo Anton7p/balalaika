@@ -3,6 +3,7 @@ import type { PinoLogger } from 'nestjs-pino';
 import type { Context } from 'telegraf';
 import { Input } from 'telegraf';
 import { mainKeyboard } from '../../common/content/keyboards/clean-keyboards';
+import type { ContentLinksService } from '../../common/content/content-links.service';
 import { MESSAGES } from '../../common/content/messages';
 import { resolveMainMenuPhotoPath } from '../../common/content/media';
 
@@ -10,10 +11,13 @@ import { resolveMainMenuPhotoPath } from '../../common/content/media';
 export async function showMainMenu(
   ctx: Context,
   log: PinoLogger,
+  contentLinks: ContentLinksService,
 ): Promise<void> {
   await ctx.answerCbQuery().catch(() => undefined);
   const caption = MESSAGES.MAIN_TITLE;
-  const reply_markup = mainKeyboard().reply_markup;
+  const reply_markup = mainKeyboard(
+    contentLinks.resolveSupportContactUrl(),
+  ).reply_markup;
   const photoPath = resolveMainMenuPhotoPath();
 
   try {

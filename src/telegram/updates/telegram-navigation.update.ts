@@ -5,9 +5,9 @@ import type { Context } from 'telegraf';
 import { Scenes } from 'telegraf';
 import { ACTIONS } from '../../common/content/actions';
 import {
-  durationKeyboard,
+  legalKeyboard,
   platformKeyboard,
-  supportKeyboard,
+  supportOpenKeyboard,
 } from '../../common/content/keyboards/clean-keyboards';
 import { MESSAGES } from '../../common/content/messages';
 import { ContentLinksService } from '../../common/content/content-links.service';
@@ -56,26 +56,19 @@ export class TelegramNavigationUpdate {
   @Action(ACTIONS.LEGAL)
   async onLegal(@Ctx() ctx: Context): Promise<void> {
     const legal = this.contentLinks.getLegalLinks();
-    try {
-      const supportUrl = this.contentLinks.requireSupportContactUrl();
-      await editWelcomeCaption(
-        ctx,
-        MESSAGES.SUPPORT,
-        supportKeyboard(legal, supportUrl),
-        this.log,
-      );
-    } catch (err) {
-      this.log.error({ err }, 'telegram_support_url_missing');
-      await ctx.reply(MESSAGES.ERROR);
-    }
+    await editWelcomeCaption(
+      ctx,
+      MESSAGES.LEGAL,
+      legalKeyboard(legal),
+      this.log,
+    );
   }
 
   private async replySupportScreen(ctx: Context): Promise<void> {
-    const legal = this.contentLinks.getLegalLinks();
     try {
       const supportUrl = this.contentLinks.requireSupportContactUrl();
-      await ctx.reply(MESSAGES.SUPPORT, {
-        reply_markup: supportKeyboard(legal, supportUrl).reply_markup,
+      await ctx.reply(MESSAGES.SUPPORT_OPEN, {
+        reply_markup: supportOpenKeyboard(supportUrl).reply_markup,
       });
     } catch (err) {
       this.log.error({ err }, 'telegram_support_url_missing');

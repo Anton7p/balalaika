@@ -7,6 +7,7 @@ import {
   emptyKeysKeyboard,
   keyDisplayKeyboard,
 } from '../../common/content/keyboards/clean-keyboards';
+import { ContentLinksService } from '../../common/content/content-links.service';
 import { MESSAGES } from '../../common/content/messages';
 import { SubscriptionsService } from '../../subscriptions/subscriptions.service';
 import { UsersService } from '../../users/users.service';
@@ -18,6 +19,7 @@ export class TelegramKeysUpdate {
   constructor(
     private readonly usersService: UsersService,
     private readonly subscriptionsService: SubscriptionsService,
+    private readonly contentLinks: ContentLinksService,
     @InjectPinoLogger(TelegramKeysUpdate.name)
     private readonly log: PinoLogger,
   ) {}
@@ -70,7 +72,9 @@ export class TelegramKeysUpdate {
       const active = await this.subscriptionsService.getActiveForUser(user.id);
       if (active === null) {
         await ctx.reply(MESSAGES.NO_KEY, {
-          reply_markup: emptyKeysKeyboard().reply_markup,
+          reply_markup: emptyKeysKeyboard(
+            this.contentLinks.resolveSupportContactUrl(),
+          ).reply_markup,
         });
         return;
       }

@@ -28,10 +28,12 @@ export const MESSAGES = {
 
   PLATFORM_TITLE: (platform: string) => `📱 ${platform}`,
 
-  SUPPORT:
+  LEGAL:
     '⚖️ Условия\n\n' +
-    `Вопросы по оплате и VPN — кнопка «${UI_LABELS.SUPPORT}» откроет чат с администратором.\n\n` +
     'Наши ресурсы:\n▬ FAQ и ответы на вопросы\n▬ Условия сервиса\n▬ Политика конфиденциальности',
+
+  SUPPORT_OPEN:
+    '💬 Поддержка\n\n' + 'Нажмите кнопку ниже — откроется чат с администратором.',
 
   MY_KEYS_ACTIVE: (expiryDate: string, key: string) =>
     `🧾 Мои ключи\n\n` +

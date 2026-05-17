@@ -7,6 +7,7 @@ import { Scenes } from 'telegraf';
 import { ACTIONS } from '../../common/content/actions';
 import { MESSAGES } from '../../common/content/messages';
 import { mainKeyboard } from '../../common/content/keyboards/clean-keyboards';
+import { ContentLinksService } from '../../common/content/content-links.service';
 import { resolveMainMenuPhotoPath } from '../../common/content/media';
 import { UsersService } from '../../users/users.service';
 import { showMainMenu } from '../helpers/show-main-menu';
@@ -16,6 +17,7 @@ import { showMainMenu } from '../helpers/show-main-menu';
 export class TelegramStartUpdate {
   constructor(
     private readonly usersService: UsersService,
+    private readonly contentLinks: ContentLinksService,
     @InjectPinoLogger(TelegramStartUpdate.name)
     private readonly log: PinoLogger,
   ) {}
@@ -30,7 +32,9 @@ export class TelegramStartUpdate {
       const photoPath = resolveMainMenuPhotoPath();
       await ctx.replyWithPhoto(Input.fromLocalFile(photoPath), {
         caption: MESSAGES.MAIN_TITLE,
-        reply_markup: mainKeyboard().reply_markup,
+        reply_markup: mainKeyboard(
+          this.contentLinks.resolveSupportContactUrl(),
+        ).reply_markup,
       });
     } catch (err) {
       this.log.error({ err }, 'telegram_start_failed');
@@ -41,6 +45,6 @@ export class TelegramStartUpdate {
   @Action(ACTIONS.START_MENU)
   async onBackToMain(@Ctx() ctx: Context): Promise<void> {
     await (ctx as Scenes.SceneContext).scene.leave().catch(() => undefined);
-    await showMainMenu(ctx, this.log);
+    await showMainMenu(ctx, this.log, this.contentLinks);
   }
 }
