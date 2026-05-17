@@ -66,9 +66,8 @@ echo "==> ci-write-inventory.yml"
 )
 
 export ANSIBLE_HOST_KEY_CHECKING="${ANSIBLE_HOST_KEY_CHECKING:-False}"
-ANSIBLE_SCRIPT=(ansible -i "$REPO_ROOT/ansible/inventory.ini" -m script -a "$REMOTE_SCRIPT" --private-key "$SSH_PRIVATE_KEY")
 
-if ANSIBLE_HOST_KEY_CHECKING="${ANSIBLE_HOST_KEY_CHECKING}" ansible nodes -i "$REPO_ROOT/ansible/inventory.ini" --list-hosts 2>/dev/null | grep -qE '^node'; then
+if grep -qE '^node[0-9]+ ' "$REPO_ROOT/ansible/inventory.ini" 2>/dev/null; then
   echo "==> teardown nodes"
   (
     cd "$REPO_ROOT/ansible"
