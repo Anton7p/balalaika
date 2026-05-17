@@ -40,6 +40,11 @@ xui_reality_server_names:
 # Опционально: имя нового API-токена (3x-ui v3.0.2+), если список пуст. Иначе имя вида balalaika-ansible-<epoch> (lookup pipe — нужен sh на контроллере).
 # xui_panel_api_token_create_name: "my-unique-token-name"
 
+# Уведомления панели в Telegram (задаются в tasks/panel/22-telegram-settings.yml при TELEGRAM_BOT_ADMIN + TELEGRAM_ADMIN_ID).
+xui_tg_bot_backup: true
+xui_tg_bot_login_notify: false
+xui_tg_run_time: "@daily"
+
 # Nginx: file to inject proxy locations (override if certbot used another vhost).
 xui_nginx_site_path: /etc/nginx/sites-enabled/default
 

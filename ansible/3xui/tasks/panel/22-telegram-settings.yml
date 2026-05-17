@@ -58,16 +58,32 @@
           - xui_settings_all_res.json.obj is defined
         fail_msg: "setting/all failed: {{ xui_settings_all_res.json.msg | default('unknown') }}"
 
+    - name: Build Telegram settings patch for panel
+      ansible.builtin.set_fact:
+        xui_tg_settings_patch:
+          tgBotEnable: true
+          tgBotToken: "{{ xui_telegram_bot_admin | trim }}"
+          tgBotChatId: "{{ xui_telegram_admin_id | trim }}"
+          tgBotBackup: "{{ xui_tg_bot_backup | default(true) | bool }}"
+          tgBotLoginNotify: "{{ xui_tg_bot_login_notify | default(false) | bool }}"
+          tgRunTime: "{{ xui_tg_run_time | default('@daily') | trim }}"
+
+    - name: Add optional Socks5 proxy for panel Telegram bot
+      ansible.builtin.set_fact:
+        xui_tg_settings_patch: "{{ xui_tg_settings_patch | combine({'tgBotProxy': xui_telegram_panel_proxy | trim}) }}"
+      when: xui_telegram_panel_proxy | default('') | trim | length > 0
+
+    - name: Add optional custom Telegram API server for panel bot
+      ansible.builtin.set_fact:
+        xui_tg_settings_patch: "{{ xui_tg_settings_patch | combine({'tgBotAPIServer': xui_telegram_panel_api_server | trim}) }}"
+      when: xui_telegram_panel_api_server | default('') | trim | length > 0
+
     - name: Merge Telegram fields into panel settings payload
       ansible.builtin.set_fact:
         xui_panel_settings_update: >-
           {{
             xui_settings_all_res.json.obj
-            | combine({
-                'tgBotEnable': true,
-                'tgBotToken': xui_telegram_bot_admin | trim,
-                'tgBotChatId': xui_telegram_admin_id | trim,
-              }, recursive=True)
+            | combine(xui_tg_settings_patch, recursive=True)
           }}
 
     - name: Update panel settings (UI session)
