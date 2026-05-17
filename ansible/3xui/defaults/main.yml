@@ -1,6 +1,9 @@
 ---
-# 3x-ui (MHSanaei) — pinned image and paths (see docs/PANEL_MASTER_NODES.md).
-xui_image: ghcr.io/mhsanaei/3x-ui:v3.0.2
+# 3x-ui (MHSanaei) — pinned tag; runtime image from org GHCR mirror (deploy-3xui.yml).
+xui_image_tag: v3.0.2
+xui_image_upstream: ghcr.io/mhsanaei/3x-ui:{{ xui_image_tag }}
+xui_ghcr_owner: anton7p
+xui_image: "{{ lookup('env', 'XUI_IMAGE') | default('ghcr.io/' ~ xui_ghcr_owner ~ '/3x-ui:' ~ xui_image_tag, true) }}"
 xui_install_dir: /opt/infrastructure/panel
 xui_container_name: xui_app
 xui_compose_project: panel

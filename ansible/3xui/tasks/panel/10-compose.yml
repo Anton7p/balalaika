@@ -14,6 +14,8 @@
     dest: "{{ xui_install_dir }}/docker-compose.yml"
     mode: "0644"
 
+- ansible.builtin.include_tasks: ../include-ghcr-docker-login.yml
+
 - name: Pull and start 3x-ui stack
   ansible.builtin.command:
     argv:

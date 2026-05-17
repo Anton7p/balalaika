@@ -1,0 +1,14 @@
+---
+- name: Log in to ghcr.io for private image pull
+  ansible.builtin.shell: |
+    set -euo pipefail
+    printf '%s' "${GITHUB_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+  args:
+    executable: /bin/bash
+  environment:
+    GITHUB_TOKEN: "{{ lookup('env', 'GITHUB_TOKEN', default='') }}"
+    GITHUB_ACTOR: "{{ lookup('env', 'GITHUB_ACTOR', default='') }}"
+  when:
+    - lookup('env', 'GITHUB_TOKEN', default='') | length > 0
+    - lookup('env', 'GITHUB_ACTOR', default='') | length > 0
+  no_log: true

@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   deploy-3xui:
@@ -28,9 +29,31 @@ jobs:
       VPN_ADMIN_PASSWORD: ${{ secrets.VPN_ADMIN_PASSWORD }}
       TELEGRAM_BOT_ADMIN: ${{ secrets.TELEGRAM_BOT_ADMIN }}
       TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
+      GITHUB_ACTOR: ${{ github.actor }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Mirror 3x-ui image to org GHCR
+        id: mirror_xui
+        env:
+          XUI_TAG: v3.0.2
+        run: |
+          owner_lc="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          upstream="ghcr.io/mhsanaei/3x-ui:${XUI_TAG}"
+          mirrored="ghcr.io/${owner_lc}/3x-ui:${XUI_TAG}"
+          echo "mirrored=${mirrored}" >> "$GITHUB_OUTPUT"
+          docker pull "${upstream}"
+          docker tag "${upstream}" "${mirrored}"
+          docker push "${mirrored}"
 
       - name: Install Ansible, sshpass, Ansible collections
         run: |
@@ -86,6 +109,8 @@ jobs:
       - name: Syntax check — panel playbook
         if: ${{ inputs.target == 'panel' || inputs.target == 'all' }}
         working-directory: ansible
+        env:
+          XUI_IMAGE: ${{ steps.mirror_xui.outputs.mirrored }}
         run: ansible-playbook -i inventory.ini 3xui/deploy-panel.yml --syntax-check
 
       - name: Deploy 3x-ui panel on master
@@ -93,12 +118,15 @@ jobs:
         working-directory: ansible
         env:
           ANSIBLE_HOST_KEY_CHECKING: "False"
+          XUI_IMAGE: ${{ steps.mirror_xui.outputs.mirrored }}
         run: |
           ansible-playbook -i inventory.ini 3xui/deploy-panel.yml --private-key ../.tmp-keys/id_rsa
 
       - name: Syntax check — nodes playbook
         if: ${{ (inputs.target == 'nodes' || inputs.target == 'all') && steps.nodes_inv.outputs.present == 'true' }}
         working-directory: ansible
+        env:
+          XUI_IMAGE: ${{ steps.mirror_xui.outputs.mirrored }}
         run: ansible-playbook -i inventory.ini 3xui/deploy-nodes.yml --syntax-check
 
       - name: Deploy 3x-ui nodes and register on master
@@ -106,6 +134,7 @@ jobs:
         working-directory: ansible
         env:
           ANSIBLE_HOST_KEY_CHECKING: "False"
+          XUI_IMAGE: ${{ steps.mirror_xui.outputs.mirrored }}
         run: |
           ansible-playbook -i inventory.ini 3xui/deploy-nodes.yml --private-key ../.tmp-keys/id_rsa
 
