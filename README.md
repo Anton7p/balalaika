@@ -9,6 +9,7 @@ Telegram-бот VPN на **NestJS**: подписки, выдача **`vless://`
 | Тема | Файл |
 |------|------|
 | Этап продукта (MVP) | [`docs/PRODUCT_STAGE.md`](docs/PRODUCT_STAGE.md) |
+| Нагрузочное тестирование | [`docs/LOAD_TEST.md`](docs/LOAD_TEST.md) |
 | VPN: ноды, пулы, failover | [`docs/VPN_OPERATING_MODEL.md`](docs/VPN_OPERATING_MODEL.md) |
 | Roadmap (PSP, тесты, …) | [`docs/BOT_ROADMAP.md`](docs/BOT_ROADMAP.md) |
 | Деплой бота | [`docs/DEPLOY_BOT.md`](docs/DEPLOY_BOT.md) |
