@@ -1,8 +1,9 @@
 ---
 # 3x-ui (MHSanaei) — pinned tag; runtime image from org GHCR mirror (deploy-3xui.yml).
-xui_image_tag: v3.0.2
+xui_image_tag: v3.0.1
 xui_image_upstream: ghcr.io/mhsanaei/3x-ui:{{ xui_image_tag }}
-xui_ghcr_owner: anton7p
+# ghcr.io/<owner>/3x-ui — owner из env (CI: GITHUB_ACTOR / repository_owner; локально: GHCR_OWNER в .env).
+xui_ghcr_owner: "{{ lookup('env', 'GHCR_OWNER') | default(lookup('env', 'GITHUB_ACTOR'), true) | default('your-org', true) | trim | lower }}"
 xui_image: "{{ lookup('env', 'XUI_IMAGE') | default('ghcr.io/' ~ xui_ghcr_owner ~ '/3x-ui:' ~ xui_image_tag, true) }}"
 xui_install_dir: /opt/infrastructure/panel
 xui_container_name: xui_app
@@ -45,6 +46,10 @@ xui_reality_server_names:
 xui_tg_bot_backup: true
 xui_tg_bot_login_notify: false
 xui_tg_run_time: "@daily"
+# Язык уведомлений Telegram-бота панели (ru-RU, en-US, …).
+xui_panel_tg_lang: ru-RU
+# Accept-Language для веб-панели, если у браузера нет cookie lang.
+xui_panel_accept_language: ru-RU
 
 # Nginx: file to inject proxy locations (override if certbot used another vhost).
 xui_nginx_site_path: /etc/nginx/sites-enabled/default

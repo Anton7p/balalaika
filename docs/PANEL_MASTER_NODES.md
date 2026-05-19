@@ -1,6 +1,6 @@
 # Панель и ноды (что ставим)
 
-Ставим **3x-ui** репозитория **[MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui)** ветки/тега **`v3.0.2`** (коммит `e7035b5` — ориентир при сверке с образом или сборкой).
+Ставим **3x-ui** репозитория **[MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui)** тега **`v3.0.1`** (пин в **`ansible/3xui/defaults/main.yml`**). Язык панели по умолчанию **ru-RU** (`xui_panel_tg_lang`, nginx `Accept-Language`).
 
 ## Роли
 
@@ -30,7 +30,7 @@
 - **`xui_create_default_local_inbound`** (по умолчанию **true**) — старый одиночный inbound на master (порт **`xui_inbound_port`**, remark **`xui_inbound_remark`**). Если весь пользовательский трафик только через ноды, поставьте **`false`** (через `-e` или правку defaults), чтобы не плодить лишний локальный inbound.
 - Бот: список рабочих inbound **`VPN_WORKING_INBOUND_IDS`**, лимит **`VPN_INBOUND_CLIENT_LIMIT`**, выбор и CSRF — **`src/vpn/load-balancer.service.ts`**, **`src/vpn/three-x-ui-vpn.provider.ts`**. Запасные ноды и failover — вручную, **[`VPN_OPERATING_MODEL.md`](VPN_OPERATING_MODEL.md)** §3.2–3.3, §6.
 
-Подробнее про отказ ноды, ручное переключение и ограничения: **[`VPN_NODES_AND_FAILOVER.md`](VPN_NODES_AND_FAILOVER.md)**.
+Подробнее про отказ ноды, ручное переключение и ограничения: **[`VPN_NODES_AND_FAILOVER.md`](VPN_NODES_AND_FAILOVER.md)**. Восстановление SQLite панели после сноса: **[`RESTORE.md`](RESTORE.md)**.
 
 ## Кратко, что даёт **v3.0.x** для нас
 

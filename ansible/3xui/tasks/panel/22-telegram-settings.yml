@@ -67,6 +67,7 @@
           tgBotBackup: "{{ xui_tg_bot_backup | default(true) | bool }}"
           tgBotLoginNotify: "{{ xui_tg_bot_login_notify | default(false) | bool }}"
           tgRunTime: "{{ xui_tg_run_time | default('@daily') | trim }}"
+          tgLang: "{{ xui_panel_tg_lang | default('ru-RU') | trim }}"
 
     - name: Add optional Socks5 proxy for panel Telegram bot
       ansible.builtin.set_fact:

@@ -45,7 +45,7 @@ jobs:
       - name: Mirror 3x-ui image to org GHCR
         id: mirror_xui
         env:
-          XUI_TAG: v3.0.2
+          XUI_TAG: v3.0.1
         run: |
           owner_lc="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
           upstream="ghcr.io/mhsanaei/3x-ui:${XUI_TAG}"

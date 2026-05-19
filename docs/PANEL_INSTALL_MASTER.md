@@ -1,6 +1,6 @@
 # Установка панели 3x-ui на master (Ansible)
 
-Целевая версия — **v3.0.2** (см. [`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md)). Автоматизация в репозитории уже реализована: Docker Compose на master, nginx перед панелью, UFW, CLI-учётка, затем на **контроллере** (localhost play) — создание inbound по HTTPS API.
+Целевая версия — **v3.0.1** (см. [`PANEL_MASTER_NODES.md`](PANEL_MASTER_NODES.md)). Язык: **ru-RU** (Telegram `tgLang` + nginx `Accept-Language`). Автоматизация в репозитории уже реализована: Docker Compose на master, nginx перед панелью, UFW, CLI-учётка, затем на **контроллере** (localhost play) — создание inbound по HTTPS API.
 
 CI: workflow **[`deploy-3xui.yml`](../.github/workflows/deploy-3xui.yml)** с **`target: panel`** или **`all`**.
 
