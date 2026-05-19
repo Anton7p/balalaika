@@ -5,8 +5,6 @@ interface PanelMsg {
   msg?: string;
 }
 
-const UA = 'Mozilla/5.0 (compatible; balalaika-watchdog/1.0)';
-
 export class WatchdogPanelSession {
   private cookieHeader = '';
   private loggedIn = false;
@@ -16,6 +14,7 @@ export class WatchdogPanelSession {
     private readonly username: string,
     private readonly password: string,
     private readonly http: AxiosInstance,
+    private readonly userAgent: string,
   ) {}
 
   reset(): void {
@@ -27,7 +26,7 @@ export class WatchdogPanelSession {
     return {
       Accept: 'application/json',
       'X-Requested-With': 'XMLHttpRequest',
-      'User-Agent': UA,
+      'User-Agent': this.userAgent,
       Referer: `${this.origin}/panel/`,
       Origin: this.origin,
       ...(this.cookieHeader ? { Cookie: this.cookieHeader } : {}),
@@ -262,11 +261,13 @@ export function createPanelSession(
   origin: string,
   username: string,
   password: string,
+  userAgent: string,
 ): WatchdogPanelSession {
   return new WatchdogPanelSession(
     origin,
     username,
     password,
     axios.create({ timeout: 25000 }),
+    userAgent,
   );
 }

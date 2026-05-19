@@ -7,7 +7,7 @@
 - name: Set panel UI HTTP client facts ({{ xui_panel_auth_label }})
   ansible.builtin.set_fact:
     _xui_origin: "{{ xui_panel_origin | trim }}"
-    _xui_ua: "{{ xui_panel_http_user_agent | default('Mozilla/5.0 (compatible; balalaika-ansible/1.0)') }}"
+    _xui_ua: "{{ xui_panel_http_user_agent | default('Mozilla/5.0 (compatible; ' ~ (app_namespace | default('vpnbot')) ~ '-deploy/1.0)') }}"
 
 - name: Fetch CSRF token ({{ xui_panel_auth_label }})
   ansible.builtin.uri:
@@ -163,7 +163,7 @@
         method: POST
         body_format: json
         body:
-          name: "{{ xui_panel_api_token_create_name | default('balalaika-ansible-' ~ lookup('pipe', 'date +%s'), true) }}"
+          name: "{{ xui_panel_api_token_create_name | default((app_namespace | default('vpnbot')) ~ '-deploy-' ~ lookup('pipe', 'date +%s'), true) }}"
         headers:
           Accept: application/json
           Content-Type: application/json

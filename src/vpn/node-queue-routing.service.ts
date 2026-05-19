@@ -1,25 +1,23 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type Redis from 'ioredis';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { AppNamespaceService } from '../common/app-namespace.service';
 import { REDIS_CLIENT } from '../redis/redis.constants';
 import type { ResolvedQueueNode } from './resolve-node-queue';
 import { PanelNodeRegistryService } from './panel-node-registry.service';
-import {
-  REDIS_QUEUE_WORKING_INDEX_KEY,
-  REDIS_WORKING_INBOUND_IDS_KEY,
-} from './vpn-routing.constants';
 
 @Injectable()
 export class NodeQueueRoutingService {
   constructor(
     private readonly registry: PanelNodeRegistryService,
+    private readonly appNs: AppNamespaceService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     @InjectPinoLogger(NodeQueueRoutingService.name)
     private readonly log: PinoLogger,
   ) {}
 
   async getWorkingIndex(): Promise<number> {
-    const raw = await this.redis.get(REDIS_QUEUE_WORKING_INDEX_KEY);
+    const raw = await this.redis.get(this.appNs.redisQueueWorkingIndexKey);
     if (raw === null || raw.trim().length === 0) {
       return 0;
     }
@@ -28,7 +26,7 @@ export class NodeQueueRoutingService {
   }
 
   async setWorkingIndex(index: number): Promise<void> {
-    await this.redis.set(REDIS_QUEUE_WORKING_INDEX_KEY, String(index));
+    await this.redis.set(this.appNs.redisQueueWorkingIndexKey, String(index));
   }
 
   usesNodeIpQueue(): boolean {
@@ -61,7 +59,7 @@ export class NodeQueueRoutingService {
   async currentWorkingInboundId(): Promise<number> {
     const node = await this.getWorkingNode();
     await this.redis.set(
-      REDIS_WORKING_INBOUND_IDS_KEY,
+      this.appNs.redisWorkingInboundIdsKey,
       String(node.inboundId),
     );
     return node.inboundId;
@@ -83,7 +81,7 @@ export class NodeQueueRoutingService {
     await this.setWorkingIndex(next);
     const node = queue[next];
     await this.redis.set(
-      REDIS_WORKING_INBOUND_IDS_KEY,
+      this.appNs.redisWorkingInboundIdsKey,
       String(node.inboundId),
     );
     this.log.warn(
@@ -110,7 +108,7 @@ export class NodeQueueRoutingService {
     }
     await this.setWorkingIndex(idx);
     await this.redis.set(
-      REDIS_WORKING_INBOUND_IDS_KEY,
+      this.appNs.redisWorkingInboundIdsKey,
       String(toInboundId),
     );
     this.log.warn(

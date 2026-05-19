@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { panelUserAgent } from '../common/app-namespace';
 import type { WatchdogNodeConfig } from '../vpn/build-watchdog-nodes';
 import { loadWatchdogConfig } from './config';
 import { createPanelSession } from './panel-session';
@@ -89,7 +90,7 @@ async function runFailover(
     return;
   }
 
-  const locked = await acquireFailoverLock(redis, dead.inboundId, 600);
+  const locked = await acquireFailoverLock(redis, cfg, dead.inboundId, 600);
   if (!locked) {
     console.warn(`[watchdog] failover lock busy for inbound ${dead.inboundId}`);
     return;
@@ -140,13 +141,15 @@ async function resolveNodes(
   redis: ReturnType<typeof createRedis>,
 ): Promise<readonly WatchdogNodeConfig[]> {
   if (cfg.nodeIpsRaw !== undefined) {
-    const workingIndex = await readQueueWorkingIndex(redis);
+    const workingIndex = await readQueueWorkingIndex(redis, cfg);
     return await resolveWatchdogNodesFromNodeIps(
       cfg.panelUrl,
       cfg.panelUser,
       cfg.panelPassword,
       cfg.nodeIpsRaw,
       workingIndex,
+      cfg.nodeRemarkPrefix,
+      panelUserAgent(cfg.appNamespace, 'watchdog'),
     );
   }
   return cfg.nodes;
@@ -168,6 +171,7 @@ async function tick(cfg: WatchdogConfig): Promise<void> {
     cfg.panelUrl,
     cfg.panelUser,
     cfg.panelPassword,
+    panelUserAgent(cfg.appNamespace, 'watchdog'),
   );
 
   const nodes = await resolveNodes(cfg, redis);
@@ -177,7 +181,7 @@ async function tick(cfg: WatchdogConfig): Promise<void> {
     try {
       const ok = await checkNode(cfg, node, panel);
       if (ok) {
-        const okCount = await recordOk(redis, node.inboundId);
+        const okCount = await recordOk(redis, cfg, node.inboundId);
         if (okCount >= cfg.okThreshold) {
           console.log(
             `[watchdog] inbound ${node.inboundId} healthy (${node.host}:${node.port})${monitorRoleTag(node.monitorRole)}`,
@@ -185,7 +189,7 @@ async function tick(cfg: WatchdogConfig): Promise<void> {
         }
         continue;
       }
-      const fails = await recordFail(redis, node.inboundId);
+      const fails = await recordFail(redis, cfg, node.inboundId);
       console.warn(
         `[watchdog] inbound ${node.inboundId} check failed (${fails}/${cfg.failThreshold})${monitorRoleTag(node.monitorRole)}`,
       );

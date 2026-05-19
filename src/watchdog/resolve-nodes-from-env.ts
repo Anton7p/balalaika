@@ -16,8 +16,6 @@ interface PanelNodeRow {
   address?: string;
 }
 
-const REMARK_PREFIX =
-  process.env.VPN_NODE_INBOUND_REMARK_PREFIX?.trim() || 'balalaika-node';
 const PORT_BASE = (() => {
   const raw = process.env.VPN_NODE_INBOUND_PORT_BASE?.trim();
   if (raw !== undefined && raw.length > 0) {
@@ -35,13 +33,20 @@ export async function resolveWatchdogNodesFromNodeIps(
   panelPassword: string,
   nodeIpsRaw: string,
   workingIndex: number,
+  remarkPrefix: string,
+  panelUserAgent: string,
 ): Promise<WatchdogNodeConfig[]> {
   const addresses = parseOrderedNodeAddresses(nodeIpsRaw);
   if (addresses.length === 0) {
     throw new Error('NODE_IPS: empty after parse');
   }
 
-  const panel = createPanelSession(panelUrl, panelUser, panelPassword);
+  const panel = createPanelSession(
+    panelUrl,
+    panelUser,
+    panelPassword,
+    panelUserAgent,
+  );
   await panel.ensureLogin();
 
   const inboundsRes = await panel.getJson<{
@@ -66,7 +71,7 @@ export async function resolveWatchdogNodesFromNodeIps(
     inboundsRes.obj ?? [],
     nodeRows,
     {
-      remarkPrefix: REMARK_PREFIX,
+      remarkPrefix,
       portBase: PORT_BASE,
       skipMissingInbounds: true,
     },

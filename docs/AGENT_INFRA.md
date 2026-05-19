@@ -23,7 +23,7 @@
 Сбор **`inventory.ini`** из **`MASTER_IP`** (JSON в переменной окружения, не коммитить значение):
 
 ```bash
-cd /path/to/balalaika/ansible
+cd /path/to/repo/ansible
 export MASTER_IP='{"address":"YOUR_IP","password":"YOUR_ROOT_PASSWORD"}'
 ansible-playbook -i localhost, ci/ci-write-inventory.yml
 ```

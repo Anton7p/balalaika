@@ -12,7 +12,7 @@ import { LoadBalancerService } from './load-balancer.service';
 import { NodeQueueRoutingService } from './node-queue-routing.service';
 import { PanelNodeRegistryService } from './panel-node-registry.service';
 import type { VpnProvider } from './vpn-provider.interface';
-import { REDIS_WORKING_INBOUND_IDS_KEY } from './vpn-routing.constants';
+import { AppNamespaceService } from '../common/app-namespace.service';
 import { VPN_PROVIDER } from './vpn.tokens';
 import { XuiPanelHttpClient } from './xui-panel-http.client';
 
@@ -32,6 +32,7 @@ export interface VpnFailoverRequest {
 export class VpnFailoverService {
   constructor(
     private readonly config: ConfigService,
+    private readonly appNs: AppNamespaceService,
     private readonly prisma: PrismaService,
     private readonly crypto: CryptoService,
     private readonly panel: XuiPanelHttpClient,
@@ -367,7 +368,7 @@ export class VpnFailoverService {
     if (next.length === 0) {
       next.push(replacementId);
     }
-    await this.redis.set(REDIS_WORKING_INBOUND_IDS_KEY, next.join(','));
+    await this.redis.set(this.appNs.redisWorkingInboundIdsKey, next.join(','));
     this.log.warn(
       { deadId, replacementId, next },
       'vpn_working_inbound_ids_updated_redis',

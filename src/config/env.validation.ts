@@ -161,6 +161,16 @@ export class EnvVars {
   @IsNotEmpty()
   DOMAIN_NAME!: string;
 
+  /** Явный slug; иначе выводится из DOMAIN_NAME (см. app-namespace.ts). */
+  @IsOptional()
+  @IsString()
+  APP_NAMESPACE?: string;
+
+  /** Remark inbounds на master; иначе `<APP_NAMESPACE>-node`. */
+  @IsOptional()
+  @IsString()
+  VPN_NODE_INBOUND_REMARK_PREFIX?: string;
+
   /**
    * JSON-массив нод из секрета NODE_IPS (тот же формат, что в GitHub Actions).
    * Порядок = очередь: [0] рабочая, далее запасные. Inbound id — из API панели.

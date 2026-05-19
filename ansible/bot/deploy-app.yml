@@ -26,6 +26,8 @@
     vpn_watchdog_hook_secret: "{{ lookup('env', 'VPN_WATCHDOG_HOOK_SECRET') | default(encryption_key, true) }}"
     vpn_watchdog_monitor_carrying_nodes: "{{ lookup('env', 'VPN_WATCHDOG_MONITOR_CARRYING_NODES') | default('true', true) }}"
   pre_tasks:
+    - ansible.builtin.include_tasks: ../tasks/resolve-app-namespace.yml
+
     - name: Validate required bot deploy variables
       ansible.builtin.assert:
         that:

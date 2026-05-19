@@ -3,6 +3,10 @@ import type { WatchdogNodeConfig } from '../vpn/build-watchdog-nodes';
 export type { WatchdogNodeConfig, WatchdogNodePool } from '../vpn/build-watchdog-nodes';
 
 export interface WatchdogConfig {
+  /** Slug из APP_NAMESPACE или DOMAIN_NAME (Redis-ключи). */
+  readonly appNamespace: string;
+  /** Префикс remark inbounds на master (`<namespace>-node`). */
+  readonly nodeRemarkPrefix: string;
   readonly enabled: boolean;
   readonly intervalSec: number;
   readonly failThreshold: number;

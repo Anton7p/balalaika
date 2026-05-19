@@ -72,6 +72,8 @@
     xui_vpn_username: "{{ lookup('env', 'VPN_ADMIN_USERNAME') | default('', true) | trim }}"
     xui_vpn_password: "{{ lookup('env', 'VPN_ADMIN_PASSWORD') | default('', true) | trim }}"
   pre_tasks:
+    - ansible.builtin.include_tasks: ../tasks/resolve-app-namespace.yml
+
     - name: Require DOMAIN_NAME for master API URL
       ansible.builtin.assert:
         that:

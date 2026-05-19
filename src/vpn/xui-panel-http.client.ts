@@ -1,6 +1,7 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AppNamespaceService } from '../common/app-namespace.service';
 import type { AxiosResponse } from 'axios';
 import { firstValueFrom } from 'rxjs';
 
@@ -13,9 +14,6 @@ interface PanelCsrfBody {
   readonly obj?: string;
 }
 
-const PANEL_HTTP_USER_AGENT =
-  'Mozilla/5.0 (compatible; balalaika-bot/1.0)';
-
 /** HTTP-клиент 3x-ui v3: CSRF + cookie-сессия для UI/API. */
 @Injectable()
 export class XuiPanelHttpClient {
@@ -25,6 +23,7 @@ export class XuiPanelHttpClient {
   constructor(
     private readonly config: ConfigService,
     private readonly http: HttpService,
+    private readonly appNs: AppNamespaceService,
   ) {}
 
   resetSession(): void {
@@ -58,7 +57,7 @@ export class XuiPanelHttpClient {
     return {
       Accept: 'application/json',
       'X-Requested-With': 'XMLHttpRequest',
-      'User-Agent': PANEL_HTTP_USER_AGENT,
+      'User-Agent': this.appNs.panelHttpUserAgent('bot'),
       Referer: `${this.panelOrigin}/panel/`,
       Origin: this.panelOrigin,
       ...(this.cookieHeader.length > 0 ? { Cookie: this.cookieHeader } : {}),

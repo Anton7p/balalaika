@@ -23,13 +23,14 @@ xui_create_default_local_inbound: false
 # По одному VLESS+REALITY inbound на каждую ноду на master с remark "{{ prefix }}-<ip-с-дефисами>" и nodeId.
 # Порты: xui_per_node_inbound_port_base + индекс ноды (сортировка имён в inventory). На ноде UFW откроет этот порт.
 xui_create_per_node_inbounds: true
-xui_per_node_inbound_remark_prefix: balalaika-node
+# Переопределяется resolve-app-namespace.yml; fallback — если play без resolve.
+xui_per_node_inbound_remark_prefix: "{{ app_namespace | default('vpnbot') }}-node"
 # Не пересекается с типичным xui_inbound_port 8443 на master (в БД панели порты inbound уникальны).
 xui_per_node_inbound_port_base: 9443
 
 # VLESS + REALITY inbound (matches app expectation: flow xtls-rprx-vision).
 xui_inbound_port: 8443
-xui_inbound_remark: balalaika-ansible-inbound
+xui_inbound_remark: "{{ app_namespace | default('vpnbot') }}-inbound"
 xui_reality_dest: www.yahoo.com:443
 xui_reality_server_names:
   - www.yahoo.com
@@ -37,7 +38,7 @@ xui_reality_server_names:
 # User-Agent для UI-запросов с контроллера (CSRF → login → API token). Переопределите, если WAF режет не-браузерные UA.
 # xui_panel_http_user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-# Опционально: имя нового API-токена (3x-ui v3.0.2+), если список пуст. Иначе имя вида balalaika-ansible-<epoch> (lookup pipe — нужен sh на контроллере).
+# Опционально: имя нового API-токена (3x-ui v3.0.2+), если список пуст. Иначе <app_namespace>-deploy-<epoch>.
 # xui_panel_api_token_create_name: "my-unique-token-name"
 
 # Уведомления панели в Telegram (задаются в tasks/panel/22-telegram-settings.yml при TELEGRAM_BOT_ADMIN + TELEGRAM_ADMIN_ID).

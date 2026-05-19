@@ -8,7 +8,7 @@
     - name: Set panel public HTTPS origin for settings API
       ansible.builtin.set_fact:
         xui_panel_public_origin: "https://{{ xui_domain_name | trim }}"
-        _xui_ua: "{{ xui_panel_http_user_agent | default('Mozilla/5.0 (compatible; balalaika-ansible/1.0)') }}"
+        _xui_ua: "{{ xui_panel_http_user_agent | default('Mozilla/5.0 (compatible; ' ~ (app_namespace | default('vpnbot')) ~ '-deploy/1.0)') }}"
 
     - name: Obtain panel UI session (public URL)
       ansible.builtin.include_tasks: tasks/include-panel-ui-session-bearer.yml

@@ -5,6 +5,7 @@ import { APP_FILTER } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { LoggerModule } from 'nestjs-pino';
 import { AuditModule } from './audit/audit.module';
+import { AppNamespaceModule } from './common/app-namespace.module';
 import { ContentConfigModule } from './common/content/content-config.module';
 import { HttpGlobalExceptionFilter } from './common/filters/http-global.exception.filter';
 import { PricingCatalogModule } from './catalog/pricing-catalog.module';
@@ -63,6 +64,7 @@ import { UsersModule } from './users/users.module';
         };
       },
     }),
+    AppNamespaceModule,
     AuditModule,
     ContentConfigModule,
     PricingCatalogModule,

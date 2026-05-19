@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Локальный прогон bootstrap (как bootstrap-infra.yml): inventory → bootstrap.yml.
 # Запуск из WSL/Linux (из любого cwd):
-#   bash /path/to/balalaika/scripts/deploy_bootstrap.sh
+#   bash /path/to/repo/scripts/deploy_bootstrap.sh
 # или из корня репозитория:
 #   bash scripts/deploy_bootstrap.sh
 # На Windows-диске при CRLF: sed -i 's/\r$//' scripts/deploy_bootstrap.sh

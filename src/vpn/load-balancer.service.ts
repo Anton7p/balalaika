@@ -1,9 +1,9 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type Redis from 'ioredis';
+import { AppNamespaceService } from '../common/app-namespace.service';
 import { REDIS_CLIENT } from '../redis/redis.constants';
 import { NodeQueueRoutingService } from './node-queue-routing.service';
-import { REDIS_WORKING_INBOUND_IDS_KEY } from './vpn-routing.constants';
 
 export interface InboundPickResult {
   readonly inboundId: number;
@@ -17,6 +17,7 @@ export interface InboundPickResult {
 export class LoadBalancerService {
   constructor(
     private readonly config: ConfigService,
+    private readonly appNs: AppNamespaceService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     @Optional() private readonly nodeQueue?: NodeQueueRoutingService,
   ) {}
@@ -26,7 +27,7 @@ export class LoadBalancerService {
     if (this.nodeQueue?.usesNodeIpQueue()) {
       return [await this.nodeQueue.currentWorkingInboundId()];
     }
-    const fromRedis = await this.redis.get(REDIS_WORKING_INBOUND_IDS_KEY);
+    const fromRedis = await this.redis.get(this.appNs.redisWorkingInboundIdsKey);
     if (fromRedis !== null && fromRedis.trim().length > 0) {
       return this.parseInboundIdList(fromRedis);
     }

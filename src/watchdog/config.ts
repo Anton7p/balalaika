@@ -1,3 +1,7 @@
+import {
+  nodeInboundRemarkPrefix,
+  resolveAppNamespace,
+} from '../common/app-namespace';
 import { parseNodesJson } from './parse-nodes-json';
 import type { WatchdogConfig } from './types';
 
@@ -44,7 +48,15 @@ export function loadWatchdogConfig(): WatchdogConfig {
   }
 
   const hasNodeIps = nodeIpsRaw !== undefined;
+  const appNamespace = resolveAppNamespace({
+    appNamespace: envOptional('APP_NAMESPACE'),
+    domainName: envOptional('DOMAIN_NAME'),
+  });
+  const remarkOverride = envOptional('VPN_NODE_INBOUND_REMARK_PREFIX');
   return {
+    appNamespace,
+    nodeRemarkPrefix:
+      remarkOverride ?? nodeInboundRemarkPrefix(appNamespace),
     enabled,
     intervalSec: Number(envOptional('VPN_WATCHDOG_INTERVAL_SEC') ?? '60'),
     failThreshold: Number(envOptional('VPN_WATCHDOG_FAIL_THRESHOLD') ?? '3'),

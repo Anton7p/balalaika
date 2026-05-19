@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AppNamespaceService } from '../common/app-namespace.service';
 import { ConfigService } from '@nestjs/config';
 import { parseOrderedNodeAddresses } from './parse-node-ips';
 import {
@@ -26,6 +27,7 @@ export class PanelNodeRegistryService {
   constructor(
     private readonly config: ConfigService,
     private readonly panel: XuiPanelHttpClient,
+    private readonly appNs: AppNamespaceService,
   ) {}
 
   orderedAddressesFromEnv(): string[] {
@@ -41,10 +43,7 @@ export class PanelNodeRegistryService {
   }
 
   remarkPrefix(): string {
-    return (
-      this.config.get<string>('VPN_NODE_INBOUND_REMARK_PREFIX') ??
-      'balalaika-node'
-    );
+    return this.appNs.nodeRemarkPrefix;
   }
 
   portBase(): number {

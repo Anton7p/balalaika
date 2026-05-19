@@ -121,7 +121,7 @@
 
 Конфиг watchdog — в **`.env`** на master (шаблон [`app.env.j2`](../ansible/bot/templates/app.env.j2)): секрет **`NODE_IPS`** (тот же JSON, что в GitHub) + учётка панели; ноды резолвятся через API при каждой проверке. Пороги и **`VPN_WATCHDOG_HOOK_SECRET`** (можно = `ENCRYPTION_KEY`) — дефолты в плейбуке. **Не** отдельные секреты GitHub.
 
-После авто-failover список **`VPN_WORKING_INBOUND_IDS`** для **новых** клиентов дублируется в Redis (`balalaika:vpn:working_inbound_ids`); бот читает Redis, затем env.
+После авто-failover список **`VPN_WORKING_INBOUND_IDS`** для **новых** клиентов дублируется в Redis (`<APP_NAMESPACE>:vpn:working_inbound_ids`, namespace из `DOMAIN_NAME`); бот читает Redis, затем env.
 
 ### 6.1. Ручной failover (если watchdog выключен)
 

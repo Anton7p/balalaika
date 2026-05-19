@@ -15,6 +15,8 @@
     xui_telegram_panel_proxy: "{{ lookup('env', 'TELEGRAM_PANEL_SOCKS5_PROXY') | default('', true) | trim }}"
     xui_telegram_panel_api_server: "{{ lookup('env', 'TELEGRAM_PANEL_API_SERVER') | default('', true) | trim }}"
   pre_tasks:
+    - ansible.builtin.include_tasks: ../tasks/resolve-app-namespace.yml
+
     - name: Require DOMAIN_NAME and VPN admin secrets
       ansible.builtin.assert:
         that:
@@ -51,6 +53,9 @@
     xui_telegram_bot_admin: "{{ lookup('env', 'TELEGRAM_BOT_ADMIN') | default('', true) | trim }}"
     xui_telegram_panel_proxy: "{{ lookup('env', 'TELEGRAM_PANEL_SOCKS5_PROXY') | default('', true) | trim }}"
     xui_telegram_panel_api_server: "{{ lookup('env', 'TELEGRAM_PANEL_API_SERVER') | default('', true) | trim }}"
+  pre_tasks:
+    - ansible.builtin.include_tasks: ../tasks/resolve-app-namespace.yml
+
   tasks:
     - ansible.builtin.include_tasks: tasks/panel/22-telegram-settings.yml
     - ansible.builtin.include_tasks: tasks/panel/45-remove-local-inbound.yml

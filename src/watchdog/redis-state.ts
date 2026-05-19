@@ -10,19 +10,27 @@ export function createRedis(cfg: WatchdogConfig): Redis {
   });
 }
 
-function failKey(inboundId: number): string {
-  return `balalaika:watchdog:fail:${inboundId}`;
+function failKey(cfg: WatchdogConfig, inboundId: number): string {
+  return `${cfg.appNamespace}:watchdog:fail:${inboundId}`;
 }
 
-function okKey(inboundId: number): string {
-  return `balalaika:watchdog:ok:${inboundId}`;
+function okKey(cfg: WatchdogConfig, inboundId: number): string {
+  return `${cfg.appNamespace}:watchdog:ok:${inboundId}`;
 }
 
-const LOCK_KEY = 'balalaika:watchdog:failover:lock';
-const QUEUE_WORKING_INDEX_KEY = 'balalaika:vpn:queue:working_index';
+function lockKey(cfg: WatchdogConfig): string {
+  return `${cfg.appNamespace}:watchdog:failover:lock`;
+}
 
-export async function readQueueWorkingIndex(redis: Redis): Promise<number> {
-  const raw = await redis.get(QUEUE_WORKING_INDEX_KEY);
+function queueWorkingIndexKey(cfg: WatchdogConfig): string {
+  return `${cfg.appNamespace}:vpn:queue:working_index`;
+}
+
+export async function readQueueWorkingIndex(
+  redis: Redis,
+  cfg: WatchdogConfig,
+): Promise<number> {
+  const raw = await redis.get(queueWorkingIndexKey(cfg));
   if (raw === null || raw.trim().length === 0) {
     return 0;
   }
@@ -32,27 +40,33 @@ export async function readQueueWorkingIndex(redis: Redis): Promise<number> {
 
 export async function recordFail(
   redis: Redis,
+  cfg: WatchdogConfig,
   inboundId: number,
 ): Promise<number> {
-  const n = await redis.incr(failKey(inboundId));
-  await redis.expire(failKey(inboundId), 3600);
-  await redis.del(okKey(inboundId));
+  const n = await redis.incr(failKey(cfg, inboundId));
+  await redis.expire(failKey(cfg, inboundId), 3600);
+  await redis.del(okKey(cfg, inboundId));
   return n;
 }
 
-export async function recordOk(redis: Redis, inboundId: number): Promise<number> {
-  const n = await redis.incr(okKey(inboundId));
-  await redis.expire(okKey(inboundId), 3600);
-  await redis.del(failKey(inboundId));
+export async function recordOk(
+  redis: Redis,
+  cfg: WatchdogConfig,
+  inboundId: number,
+): Promise<number> {
+  const n = await redis.incr(okKey(cfg, inboundId));
+  await redis.expire(okKey(cfg, inboundId), 3600);
+  await redis.del(failKey(cfg, inboundId));
   return n;
 }
 
 export async function acquireFailoverLock(
   redis: Redis,
+  cfg: WatchdogConfig,
   inboundId: number,
   ttlSec: number,
 ): Promise<boolean> {
-  const key = `${LOCK_KEY}:${inboundId}`;
+  const key = `${lockKey(cfg)}:${inboundId}`;
   const res = await redis.set(key, '1', 'EX', ttlSec, 'NX');
   return res === 'OK';
 }

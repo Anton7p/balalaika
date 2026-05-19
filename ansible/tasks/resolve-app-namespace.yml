@@ -1,0 +1,19 @@
+---
+# app_namespace: APP_NAMESPACE env или slug из DOMAIN_NAME (как marker_slug в bootstrap).
+- name: Resolve app_namespace from environment
+  ansible.builtin.set_fact:
+    app_namespace: "{{ explicit if (explicit | length > 0) else from_domain }}"
+  vars:
+    explicit: "{{ lookup('env', 'APP_NAMESPACE') | default('', true) | trim }}"
+    from_domain: >-
+      {{
+        (lookup('env', 'DOMAIN_NAME') | default('infra', true) | trim | lower)
+        | regex_replace('^www\.', '')
+        | regex_replace('[^a-z0-9]+', '-')
+        | regex_replace('^-+|-+$', '')
+      }}
+
+- name: Apply namespace to 3x-ui remark defaults
+  ansible.builtin.set_fact:
+    xui_per_node_inbound_remark_prefix: "{{ app_namespace }}-node"
+    xui_inbound_remark: "{{ app_namespace }}-inbound"

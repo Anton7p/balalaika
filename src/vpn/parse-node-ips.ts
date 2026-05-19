@@ -1,3 +1,8 @@
+import {
+  FALLBACK_APP_NAMESPACE,
+  nodeInboundRemarkPrefix,
+} from '../common/app-namespace';
+
 /** Порядок элементов NODE_IPS = очередь нод (0 — рабочая, 1 — запасная, …). */
 
 export function parseOrderedNodeAddresses(raw: string): string[] {
@@ -30,7 +35,7 @@ export function parseOrderedNodeAddresses(raw: string): string[] {
 
 export function inboundRemarkForIp(
   ip: string,
-  prefix = 'balalaika-node',
+  prefix = nodeInboundRemarkPrefix(FALLBACK_APP_NAMESPACE),
 ): string {
   return `${prefix}-${ip.replace(/\./g, '-')}`;
 }

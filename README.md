@@ -1,4 +1,4 @@
-# Balalaika
+# VPN Telegram Bot (коробочное развёртывание)
 
 Telegram-бот VPN на **NestJS**: подписки, выдача **`vless://`** через **3x-ui** (master + ноды), auto-failover, деплой через **Ansible** и **GitHub Actions**.
 

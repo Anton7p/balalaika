@@ -15,6 +15,7 @@ import type {
   VpnClientCreated,
   VpnProvider,
 } from './vpn-provider.interface';
+import { AppNamespaceService } from '../common/app-namespace.service';
 import { LoadBalancerService } from './load-balancer.service';
 
 interface PanelMsg {
@@ -32,9 +33,6 @@ const VLESS_FLOW_XTLS_RPRX_VISION = 'xtls-rprx-vision' as const;
 /** Базовый путь веб-UI 3x-ui (типичный webBasePath). */
 const DEFAULT_XUI_WEB_BASE_PATH = '/panel/';
 
-const PANEL_HTTP_USER_AGENT =
-  'Mozilla/5.0 (compatible; balalaika-bot/1.0)';
-
 /** Фраза + "-" + telegram id в поле email панели (без @домена). Латиница для совместимости с клиентами. */
 const SUB_EMAIL_PHRASES = [
   'vse-letaet-ura',
@@ -42,14 +40,11 @@ const SUB_EMAIL_PHRASES = [
   'prosto-skazka',
   'vpn-krasavchik',
   'lovit-otlichno',
-  'balalaika-igraet',
   'medved-v-seti',
-  'balalaika-zhgi',
   'medved-odobryaet',
-  'balalaika-letit',
-  'balalaika-vsegda-ryadom',
-  'gromkaya-balalaika',
   'prosto-pushka',
+  'signal-lovit',
+  'tunel-gotov',
 ] as const;  
 
 @Injectable()
@@ -61,6 +56,7 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     private readonly config: ConfigService,
     private readonly http: HttpService,
     private readonly loadBalancer: LoadBalancerService,
+    private readonly appNs: AppNamespaceService,
   ) {}
 
   private get panelOrigin(): string {
@@ -103,7 +99,7 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
     return {
       Accept: 'application/json',
       'X-Requested-With': 'XMLHttpRequest',
-      'User-Agent': PANEL_HTTP_USER_AGENT,
+      'User-Agent': this.appNs.panelHttpUserAgent('bot'),
       Referer: `${this.panelOrigin}/panel/`,
       Origin: this.panelOrigin,
       ...(this.cookieHeader.length > 0 ? { Cookie: this.cookieHeader } : {}),

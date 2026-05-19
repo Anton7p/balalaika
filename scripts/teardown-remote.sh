@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Выполняется на master или ноде (ansible script / ssh bash -s).
-# Останавливает стеки balalaika и удаляет данные панели и приложения.
+# Останавливает стеки приложения и удаляет данные панели и бота.
 set -euo pipefail
 
 PANEL_DIR="${PANEL_DIR:-/opt/infrastructure/panel}"

@@ -1,4 +1,4 @@
-# Отчёт: нагрузочное и интеграционное тестирование Balalaika VPN
+# Отчёт: нагрузочное и интеграционное тестирование (исторический прогон)
 
 **Дата:** 2026-05-18  
 **Статус:** сессия завершена; съёмный слой (`scripts/load-test/`, `scripts/test/`, `src/cli/`) **удалён из репозитория**.  
@@ -60,7 +60,7 @@
 | Seed 200 | **198 OK**, 2 ошибки (#101 duplicate email, #142 `getClientLinks`) |
 | До failover | 198 подписок на inbound **1** (`109.172.95.82`) |
 | Failover (ранний) | ~2.5 мин; watchdog `1 → 2`; Postgres **197** на inbound **2**, **1** на inbound **1** |
-| Панель после | 198 клиентов на `balalaika-node-62-60-149-29` |
+| Панель после | 198 клиентов на `<namespace>-node-62-60-149-29` |
 
 ### 4.2 Основной прогон (вечер, после `deploy_3xui_nodes.sh`)
 
@@ -85,7 +85,7 @@
 | Старт | 200 подписок, `panel_inbound_id=3`, панель 197 клиентов |
 | Ожидание | **~2.5 мин** (опрос Postgres каждые 15 s) |
 | Postgres (PASS) | Сначала 127+73 на inbound 2 и 3; итог **197** на **2**, **3** на **3** |
-| Панель | **197** на `balalaika-node-62-60-149-29` (inbound 2) |
+| Панель | **197** на `<namespace>-node-62-60-149-29` (inbound 2) |
 | Redis после | `working_index=1`, `working_inbound_ids=2` |
 | Watchdog | `inbound 3 check failed (1/3)→(3/3)` → `failover 3 (109.172.95.82) → 2 (62.60.149.29)` → `deleted dead inbound 3 on master` → `failover completed, app hook OK` |
 | `restore` | x-ui на `109.172.95.82` снова **Up** |
