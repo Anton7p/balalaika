@@ -25,12 +25,21 @@ export class PurchaseScene {
 
   @SceneEnter()
   async onEnter(@Ctx() ctx: Context): Promise<void> {
+    const includeFreeTrial = await this.resolveIncludeFreeTrial(ctx);
     await editWelcomeCaption(
       ctx,
       MESSAGES.SELECT_DURATION,
-      durationKeyboard(),
+      durationKeyboard({ includeFreeTrial }),
       this.log,
     );
+  }
+
+  private async resolveIncludeFreeTrial(ctx: Context): Promise<boolean> {
+    if (ctx.from === undefined) {
+      return true;
+    }
+    const user = await this.usersService.upsertFromTelegram(ctx.from);
+    return !(await this.usersService.hasUsedFreeTrial(user.id));
   }
 
   @Action(ACTIONS.FREE_TEST)

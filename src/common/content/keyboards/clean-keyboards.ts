@@ -43,11 +43,14 @@ export function mainKeyboard(
   return Markup.inlineKeyboard(rows);
 }
 
-export function durationKeyboard(): ReturnType<typeof Markup.inlineKeyboard> {
+export function durationKeyboard(options?: {
+  readonly includeFreeTrial?: boolean;
+}): ReturnType<typeof Markup.inlineKeyboard> {
   const rows: InlineKbGrid = [];
+  const includeFreeTrial = options?.includeFreeTrial ?? true;
 
   const freeTest = ACCESS_PRICES.find((p) => p.months === 0);
-  if (freeTest && freeTest.devices !== undefined) {
+  if (includeFreeTrial && freeTest && freeTest.devices !== undefined) {
     rows.push([
       Markup.button.callback(
         formatFreeTrialButtonLabel({

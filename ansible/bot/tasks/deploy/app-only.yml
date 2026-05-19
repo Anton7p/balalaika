@@ -86,3 +86,6 @@
         msg: >-
           Bot /health did not become ready in time.
           {{ compose_logs.stdout | default('', true) }}
+
+- name: Install daily Telegram backup cron for admin
+  ansible.builtin.include_tasks: ../backup/install-daily-telegram-cron.yml

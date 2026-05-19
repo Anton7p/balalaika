@@ -11,7 +11,9 @@ import { PricingCatalogService } from '../catalog/pricing-catalog.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SUBSCRIPTION_HOOKS_QUEUE } from '../queues/subscription-hooks.queue';
 import type { SubscriptionHookJobPayload } from './subscription-hooks.processor';
+import { UsersService } from '../users/users.service';
 import { VpnProvisioningService } from '../vpn/vpn-provisioning.service';
+import { FreeTrialAlreadyUsedError } from './errors/free-trial-already-used.error';
 
 export interface ActiveVpnPayload {
   readonly subscriptionId: string;
@@ -34,6 +36,7 @@ export class SubscriptionsService {
     private readonly vpnProvisioning: VpnProvisioningService,
     private readonly audit: AuditService,
     private readonly pricingCatalog: PricingCatalogService,
+    private readonly usersService: UsersService,
     @InjectQueue(SUBSCRIPTION_HOOKS_QUEUE)
     private readonly hooksQueue: Queue<SubscriptionHookJobPayload>,
   ) {}
@@ -46,7 +49,11 @@ export class SubscriptionsService {
     userId: string,
     planMonths: number,
     actorTelegramId?: bigint,
-  ): Promise<{ expiresAt: Date; keyPlain: string }> {
+  ): Promise<{ expiresAt: Date; keyPlain: string; extended: boolean }> {
+    if (planMonths === 0 && (await this.usersService.hasUsedFreeTrial(userId))) {
+      throw new FreeTrialAlreadyUsedError();
+    }
+
     const idempotencyKey = randomUUID();
     await this.billing.confirmCheckout({
       userId,
@@ -166,7 +173,11 @@ export class SubscriptionsService {
       { removeOnComplete: true },
     );
 
-    return { expiresAt, keyPlain };
+    if (planMonths === 0) {
+      await this.usersService.markFreeTrialUsed(userId);
+    }
+
+    return { expiresAt, keyPlain, extended };
   }
 
   async getActiveForUser(userId: string): Promise<ActiveVpnPayload | null> {

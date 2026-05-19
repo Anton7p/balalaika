@@ -2,6 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppNamespaceService } from '../common/app-namespace.service';
+import { joinPanelApiUrl } from './panel-api-url';
 import type { AxiosResponse } from 'axios';
 import { firstValueFrom } from 'rxjs';
 
@@ -40,9 +41,7 @@ export class XuiPanelHttpClient {
   }
 
   apiPath(suffix: string): string {
-    const base = '/panel';
-    const path = suffix.startsWith('/') ? suffix : `/${suffix}`;
-    return `${this.panelOrigin}${base}${path}`;
+    return joinPanelApiUrl(this.panelOrigin, suffix);
   }
 
   private get adminUsername(): string {

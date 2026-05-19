@@ -1,0 +1,18 @@
+---
+# Установка cron ежедневных бэкапов в Telegram (без пересборки образа app).
+# Переменные окружения — как в deploy-app.yml.
+- name: Install daily Telegram backup cron on master
+  hosts: master
+  become: true
+  vars:
+    deploy_root: "{{ lookup('env', 'DEPLOY_ROOT') | default('/opt/infrastructure', true) }}"
+    app_dir: "{{ deploy_root }}/app"
+    domain_name: "{{ lookup('env', 'DOMAIN_NAME') }}"
+    telegram_bot_token: "{{ lookup('env', 'TELEGRAM_BOT_TOKEN') | default('', true) }}"
+    telegram_bot_admin: "{{ lookup('env', 'TELEGRAM_BOT_ADMIN') | default('', true) }}"
+    telegram_admin_id: "{{ lookup('env', 'TELEGRAM_ADMIN_ID') | default('', true) }}"
+    backup_cron: "{{ lookup('env', 'BACKUP_CRON') | default('30 3 * * *', true) }}"
+    backup_include_panel: "{{ lookup('env', 'BACKUP_INCLUDE_PANEL') | default('', true) }}"
+  tasks:
+    - name: Include backup cron install
+      ansible.builtin.include_tasks: tasks/backup/install-daily-telegram-cron.yml

@@ -13,6 +13,8 @@ Telegram-бот VPN на **NestJS**: подписки, выдача **`vless://`
 | VPN: ноды, пулы, failover | [`docs/VPN_OPERATING_MODEL.md`](docs/VPN_OPERATING_MODEL.md) |
 | Roadmap (PSP, тесты, …) | [`docs/BOT_ROADMAP.md`](docs/BOT_ROADMAP.md) |
 | Деплой бота | [`docs/DEPLOY_BOT.md`](docs/DEPLOY_BOT.md) |
+| Восстановление из бэкапов | [`docs/RESTORE.md`](docs/RESTORE.md) |
+| Ежедневные бэкапы в Telegram | [`docs/BACKUP.md`](docs/BACKUP.md) |
 | Инфра / SSH / WSL | [`docs/AGENT_INFRA.md`](docs/AGENT_INFRA.md) |
 | Секреты GitHub | [`docs/GITHUB_SECRETS.md`](docs/GITHUB_SECRETS.md) |
 
@@ -33,6 +35,7 @@ bash scripts/deploy_bootstrap_then_bot.sh --build   # с нуля
 bash scripts/deploy_bot.sh --build                  # только бот
 bash scripts/reset_and_redeploy.sh --build        # teardown + панель + ноды + бот
 bash scripts/watchdog_logs.sh                     # логи failover
+bash scripts/restore_from_backups.sh PANEL.db APP.sql   # после сноса, см. docs/RESTORE.md
 ```
 
 Корневой **`.env`**: `MASTER_IP`, `NODE_IPS`, секреты — для скриптов; в git не попадает.
@@ -40,7 +43,7 @@ bash scripts/watchdog_logs.sh                     # логи failover
 ## Стек
 
 - **app** — NestJS, Prisma, BullMQ, Telegraf  
-- **master** — 3x-ui v3.0.2, nginx, `vpn-watchdog`  
+- **master** — 3x-ui v3.0.1, nginx, `vpn-watchdog`  
 - **ноды** — 3x-ui + Xray, inbound с `nodeId` на master  
 
 Лицензия проекта — см. репозиторий; NestJS — MIT.

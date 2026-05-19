@@ -1,4 +1,5 @@
 import axios, { type AxiosInstance } from 'axios';
+import { joinPanelApiUrl } from '../vpn/panel-api-url';
 
 interface PanelMsg {
   success?: boolean;
@@ -64,8 +65,7 @@ export class WatchdogPanelSession {
   }
 
   private apiPath(suffix: string): string {
-    const p = suffix.startsWith('/') ? suffix : `/${suffix}`;
-    return `${this.origin}/panel${p}`;
+    return joinPanelApiUrl(this.origin, suffix);
   }
 
   private async csrf(): Promise<string> {

@@ -1,0 +1,50 @@
+---
+# Cron: ежедневная отправка бэкапа Postgres (+ опционально панели) в Telegram админу.
+
+- name: Install daily Telegram backup cron
+  when: telegram_admin_id | default('', true) | trim | length > 0
+  block:
+    - name: Require Telegram bot token for backups
+      ansible.builtin.assert:
+        that:
+          - (telegram_bot_admin | default('', true) | trim | length > 0) or (telegram_bot_token | trim | length > 0)
+        fail_msg: >-
+          Нужен TELEGRAM_BOT_ADMIN и/или TELEGRAM_BOT_TOKEN для отправки бэкапов.
+
+    - name: Ensure backup directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0750"
+      loop:
+        - "{{ deploy_root }}/backup"
+        - "{{ deploy_root }}/backup/work"
+
+    - name: Install backup runner script on master
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../scripts/backup-daily-to-telegram-remote.sh"
+        dest: "{{ deploy_root }}/backup/backup-daily-to-telegram.sh"
+        mode: "0750"
+
+    - name: Deploy backup Telegram env file
+      ansible.builtin.template:
+        src: templates/backup-telegram.env.j2
+        dest: "{{ deploy_root }}/backup/telegram.env"
+        mode: "0600"
+
+    - name: Parse BACKUP_CRON schedule
+      ansible.builtin.set_fact:
+        _backup_cron_minute: "{{ backup_cron.split()[0] }}"
+        _backup_cron_hour: "{{ backup_cron.split()[1] }}"
+      when: backup_cron.split() | length >= 2
+
+    - name: Install daily backup cron job
+      ansible.builtin.cron:
+        name: vpnbox-daily-telegram-backup
+        user: root
+        minute: "{{ _backup_cron_minute | default('30') }}"
+        hour: "{{ _backup_cron_hour | default('3') }}"
+        job: >-
+          {{ deploy_root }}/backup/backup-daily-to-telegram.sh
+          >> /var/log/vpnbox-backup.log 2>&1
+        state: present

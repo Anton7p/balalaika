@@ -28,9 +28,9 @@
 
 | Роль | IP | Примечание |
 |------|-----|------------|
-| Master / панель | `62.60.229.227` | Postgres, app, 3x-ui, vpn-watchdog |
-| Рабочая нода `[0]` | `109.172.95.82` | `NODE_IPS[0]` |
-| Запасная `[1]` | `62.60.149.29` | `NODE_IPS[1]` |
+| Master / панель | `<MASTER_IP>` | Postgres, app, 3x-ui, vpn-watchdog |
+| Рабочая нода `[0]` | `<NODE_IPS[0]>` | первая нода в секрете |
+| Запасная `[1]` | `<NODE_IPS[1]>` | вторая нода в секрете |
 | Генератор трафика | WSL + Docker на ПК | `LOAD_GENERATOR_IP` **не** использовался |
 
 Переменные: `.env` — `MASTER_IP`, `NODE_IPS`, `DOMAIN_NAME`, `VPN_ADMIN_*`, `VPN_INBOUND_CLIENT_LIMIT=200` (кроме смоука ротации).
@@ -58,16 +58,16 @@
 | Шаг | Результат |
 |-----|-----------|
 | Seed 200 | **198 OK**, 2 ошибки (#101 duplicate email, #142 `getClientLinks`) |
-| До failover | 198 подписок на inbound **1** (`109.172.95.82`) |
+| До failover | 198 подписок на inbound **1** (`<NODE_IPS[0]>`) |
 | Failover (ранний) | ~2.5 мин; watchdog `1 → 2`; Postgres **197** на inbound **2**, **1** на inbound **1** |
-| Панель после | 198 клиентов на `<namespace>-node-62-60-149-29` |
+| Панель после | 198 клиентов на `<namespace>-node-<NODE_IP_SLUG>` |
 
 ### 4.2 Основной прогон (вечер, после `deploy_3xui_nodes.sh`)
 
 | Шаг | Результат |
 |-----|-----------|
 | `reset` | OK: панель + Postgres + Redis `working_index=0` |
-| `deploy_3xui_nodes.sh` | Inbound для `109.172.95.82` создан (частичные WARN `Port already exists: 9443`) |
+| `deploy_3xui_nodes.sh` | Inbound для `<NODE_IPS[0]>` создан (частичные WARN `Port already exists: 9443`) |
 | `seed 200` | **200/200 OK**, `panelInboundId: 3` |
 | `verify` | Postgres **200**; панель **197** клиентов на inbound 3 |
 | `export-uris` | **197** URI; **3** ошибки (email/uuid не в settings inbound) |
@@ -78,17 +78,17 @@
 
 ## 5. Failover (prod-critical) — **PASS**
 
-**Сценарий:** `dead-node` (`docker compose stop x-ui` на `109.172.95.82`) → `wait-failover` → `verify-failover` → `restore`.
+**Сценарий:** `dead-node` (`docker compose stop x-ui` на `<NODE_IPS[0]>`) → `wait-failover` → `verify-failover` → `restore`.
 
 | Момент | Наблюдение |
 |--------|------------|
 | Старт | 200 подписок, `panel_inbound_id=3`, панель 197 клиентов |
 | Ожидание | **~2.5 мин** (опрос Postgres каждые 15 s) |
 | Postgres (PASS) | Сначала 127+73 на inbound 2 и 3; итог **197** на **2**, **3** на **3** |
-| Панель | **197** на `<namespace>-node-62-60-149-29` (inbound 2) |
+| Панель | **197** на `<namespace>-node-<NODE_IP_SLUG>` (inbound 2) |
 | Redis после | `working_index=1`, `working_inbound_ids=2` |
-| Watchdog | `inbound 3 check failed (1/3)→(3/3)` → `failover 3 (109.172.95.82) → 2 (62.60.149.29)` → `deleted dead inbound 3 on master` → `failover completed, app hook OK` |
-| `restore` | x-ui на `109.172.95.82` снова **Up** |
+| Watchdog | `inbound 3 check failed (1/3)→(3/3)` → `failover 3 (<NODE_IPS[0]>) → 2 (<NODE_IPS[1]>)` → `deleted dead inbound 3 on master` → `failover completed, app hook OK` |
+| `restore` | x-ui на `<NODE_IPS[0]>` снова **Up** |
 
 **Вывод для продакшена:** контрольная плоскость при падении рабочей ноды отрабатывает: детект по 3 проверкам, миграция подписок, смена рабочей ноды в Redis, удаление мёртвого inbound с master. Восстановленный хост **не** становится primary автоматически.
 
@@ -118,7 +118,7 @@
 | 6 | 7 | **1372** | **0** | **~1.34 GB** |
 | 7 | 11 | 802 | 1354 | ~802 MB |
 
-- Сумма OK (раунды 1–7): ~**3400** запросов ≈ **~3.4 GB** через Xray на `109.172.95.82`.
+- Сумма OK (раунды 1–7): ~**3400** запросов ≈ **~3.4 GB** через Xray на `<NODE_IPS[0]>`.
 - Пик (раунд 6): ~1.34 GB за ~70 s → порядка **~19 MB/s** суммарно на ноду.
 - Финальная проверка туннелей: **192 OK**, **4 FAIL** (SOCKS).
 - Раунды 1–3: прогрев WSL + одновременный старт 197 туннелей. Раунд 7: перегруз (~37% OK).
@@ -183,7 +183,7 @@
 | Проблема | Влияние |
 |----------|---------|
 | Watchdog удаляет inbound мёртвой ноды с master | Перед новым seed 200 — `deploy_3xui_nodes.sh` |
-| `deploy_3xui_nodes.sh`: `nodes/add` / `inbounds/add` и `port` string vs int | Регистрация ноды `109.172.95.82` может падать; inbound иногда создаётся с WARN |
+| `deploy_3xui_nodes.sh`: `nodes/add` / `inbounds/add` и `port` string vs int | Регистрация ноды `<NODE_IPS[0]>` может падать; inbound иногда создаётся с WARN |
 | WSL + Docker Desktop | Много FAIL на прогреве трафика; не репрезентативно для prod bandwidth |
 | 3 подписки без клиента в панели | 200 в Postgres vs 197 в UI/export |
 | После failover Redis указывает на standby | Восстановленная нода `[0]` не primary без отдельной политики |

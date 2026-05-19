@@ -19,6 +19,7 @@ jobs:
       VPN_ADMIN_USERNAME: ${{ secrets.VPN_ADMIN_USERNAME }}
       VPN_ADMIN_PASSWORD: ${{ secrets.VPN_ADMIN_PASSWORD }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_BOT_ADMIN: ${{ secrets.TELEGRAM_BOT_ADMIN }}
       TELEGRAM_ADMIN_ID: ${{ secrets.TELEGRAM_ADMIN_ID }}
       ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
       GITHUB_ACTOR: ${{ github.actor }}

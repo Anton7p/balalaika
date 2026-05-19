@@ -16,6 +16,8 @@ CI собирает образ приложения, пушит в **GHCR**, з�
 
 Этап продукта (MVP без PSP, нагрузочные тесты): **[`PRODUCT_STAGE.md`](PRODUCT_STAGE.md)**.
 
+Восстановление после полного сноса (бэкап панели + Postgres): **[`RESTORE.md`](RESTORE.md)** — скрипты `scripts/restore_*.sh`.
+
 ## Ansible
 
 | Что | Путь |

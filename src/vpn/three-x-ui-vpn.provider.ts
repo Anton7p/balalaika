@@ -17,6 +17,7 @@ import type {
 } from './vpn-provider.interface';
 import { AppNamespaceService } from '../common/app-namespace.service';
 import { LoadBalancerService } from './load-balancer.service';
+import { joinPanelApiUrl } from './panel-api-url';
 
 interface PanelMsg {
   readonly success?: boolean;
@@ -74,9 +75,7 @@ export class ThreeXUiVpnProvider implements VpnProvider, VpnAdminProvider {
   }
 
   private apiPath(suffix: string): string {
-    const baseNoTrail = this.webBasePath.replace(/\/+$/, '');
-    const path = suffix.startsWith('/') ? suffix : `/${suffix}`;
-    return `${this.panelOrigin}${baseNoTrail}${path}`;
+    return joinPanelApiUrl(this.panelOrigin, suffix, this.webBasePath);
   }
 
   private get adminUsername(): string {
